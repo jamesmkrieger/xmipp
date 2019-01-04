@@ -20,7 +20,7 @@ from time import time
 batch_size = 128 # Number of boxes per batch
 
 
-def generateData(fnXmd, maxShift, maxPsi, mode, Nrepeats=30):
+def generateData(fnXmd, maxShift, maxPsi, mode, stdNoise, Nrepeats=30):
     mdIn = xmippLib.MetaData(fnXmd)
     X=None
     Y=None
@@ -44,7 +44,7 @@ def generateData(fnXmd, maxShift, maxPsi, mode, Nrepeats=30):
             c = math.cos(psi)
             s = math.sin(psi)
             M = np.float32([[c,s,(1-c)*Xdim2-s*Ydim2+deltaX],[-s,c,s*Xdim2+(1-c)*Ydim2+deltaY]])
-            X[idx,:,:,0] = cv2.warpAffine(I.getData(),M,(Xdim,Ydim)) + np.random.normal(0.0, 2.0, [Xdim, Xdim])
+            X[idx,:,:,0] = cv2.warpAffine(I.getData(),M,(Xdim,Ydim)) + np.random.normal(0.0, stdNoise, [Xdim, Xdim]) #stdNoise=2.0
 	    #A = xmippLib.Image()
 	    #A.setData(X[idx,:,:,0])
 	    #A.write('./aqui.stk')
@@ -90,10 +90,11 @@ if __name__=="__main__":
     fnODir = sys.argv[5]
     modelFn = sys.argv[6]
     numEpochs = int(sys.argv[7])
+    stdNoise = int(sys.argv[8])
 
     print('Train mode')
     start_time = time()
-    X, Y, Xdim = generateData(fnXmd, maxShift, maxPsi, mode)
+    X, Y, Xdim = generateData(fnXmd, maxShift, maxPsi, mode, stdNoise)
     elapsed_time = time() - start_time
     print("Time in generateData: %0.10f seconds." % elapsed_time)
     start_time = time()
