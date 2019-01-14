@@ -18,8 +18,27 @@ from keras.models import load_model
 from time import time
 import keras
 from keras import callbacks
+from keras.callbacks import Callback
 
 #batch_size = 516 # Number of boxes per batch
+
+
+class EarlyStoppingByLossVal(Callback):
+    def __init__(self, monitor='val_loss', value=0.30, verbose=0):
+        super(Callback, self).__init__()
+        self.monitor = monitor
+        self.value = value
+        self.verbose = verbose
+
+    def on_epoch_end(self, epoch, logs={}):
+        current = logs.get(self.monitor)
+        if current is None:
+            warnings.warn("Early stopping requires %s available!" % self.monitor, RuntimeWarning)
+
+        if current < self.value:
+            if self.verbose > 0:
+                print("Epoch %05d: early stopping THR" % epoch)
+            self.model.stop_training = True
 
 
 class DataGenerator(keras.utils.Sequence):
@@ -222,9 +241,11 @@ if __name__=="__main__":
 
 
     name_model = os.path.join(fnODir, modelFn+'.h5')
-    callbacks_list = [callbacks.ModelCheckpoint(filepath=name_model,
-        monitor='val_loss',
-        save_best_only=True)]
+    
+    #callbacks_list = [callbacks.ModelCheckpoint(filepath=name_model, monitor='val_loss', save_best_only=True),
+    #		      EarlyStoppingByLossVal(monitor='val_loss', value=0.30)]
+
+    callbacks_list = [callbacks.ModelCheckpoint(filepath=name_model, monitor='val_loss', save_best_only=True)]
 
 
     model.summary()

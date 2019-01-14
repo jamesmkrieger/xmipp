@@ -53,6 +53,7 @@ if __name__=="__main__":
     fnODir = sys.argv[2]
     Xdim = int(sys.argv[3])
     numClassif = int(sys.argv[4])
+    numMax=int(sys.argv[5])
 
     print('Predict mode')
     newImage = xmippLib.Image()
@@ -66,7 +67,7 @@ if __name__=="__main__":
     Nexp = mdExp.size()
     maxBatchs=np.ceil(float(Nexp)/float(sizeBatch))
     Ypred = np.zeros((Nexp),dtype=np.float64)   
-    refPred = np.zeros((Nexp,3),dtype=np.float64)    
+    refPred = np.zeros((Nexp,(numMax*2)+1),dtype=np.float64)    
     models=[]
     for i in range(numClassif):
 	if os.path.exists(os.path.join(fnODir,'modelCone%d.h5'%(i+1))):
@@ -99,13 +100,22 @@ if __name__=="__main__":
 		YpredAux[:,i] = out[:,0]
 	    #print("AQUIIII ",idxExp-sizeBatch, idxExp, YpredAux[:,i].shape, out[:,0].shape, Nexp-idxExp+1, numBatch*sizeBatch, Nexp-1)
 	    if numBatch==(maxBatchs-1):
-                Ypred[numBatch*sizeBatch:Nexp] = np.max(YpredAux, axis=1)
-	        refPred[numBatch*sizeBatch:Nexp, 1] = np.argmax(YpredAux, axis=1)+1
-	        refPred[numBatch*sizeBatch:Nexp, 2] = Ypred[numBatch*sizeBatch:Nexp]
+		for n in range(numMax):
+                    Ypred[numBatch*sizeBatch:Nexp] = np.max(YpredAux, axis=1)
+	            auxPos = np.argmax(YpredAux, axis=1)
+	            refPred[numBatch*sizeBatch:Nexp, (n*2)+1] = np.argmax(YpredAux, axis=1)+1
+	            refPred[numBatch*sizeBatch:Nexp, (n*2)+2] = Ypred[numBatch*sizeBatch:Nexp]
+		    for i,pos in enumerate(auxPos):
+		        YpredAux[i,pos]=0.0
 	    else:
-                Ypred[idxExp-sizeBatch:idxExp] = np.max(YpredAux, axis=1)
-	        refPred[idxExp-sizeBatch:idxExp, 1] = np.argmax(YpredAux, axis=1)+1
-	        refPred[idxExp-sizeBatch:idxExp, 2] = Ypred[idxExp-sizeBatch:idxExp]
+		for n in range(numMax):
+                    Ypred[idxExp-sizeBatch:idxExp] = np.max(YpredAux, axis=1)
+	            auxPos = np.argmax(YpredAux, axis=1)
+   		    #print(n, YpredAux, len(auxPos))
+	            refPred[idxExp-sizeBatch:idxExp, (n*2)+1] = np.argmax(YpredAux, axis=1)+1
+	            refPred[idxExp-sizeBatch:idxExp, (n*2)+2] = Ypred[idxExp-sizeBatch:idxExp]
+		    for i,pos in enumerate(auxPos):
+		        YpredAux[i,pos]=0.0
 	    numBatch+=1
 
     np.savetxt(os.path.join(fnODir,'conePrediction.txt'), refPred)
