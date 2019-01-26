@@ -121,8 +121,8 @@ def createValidationData(pathsExp, labels_vector, numOut, percent=0.1):
 	    del pathsExp[k]
 	    del labels_vector[k]
     elif numOut==2:
-	sizeOnes=int(round(sizeValData*0.5))
-	sizeZeros=sizeValData-sizeOnes
+	#sizeOnes=int(round(sizeValData*0.5))
+	#sizeZeros=sizeValData-sizeOnes
 	labels = np.array(labels_vector)	
 	vectorOnes = np.where(labels==1)
 	numberOnes = int(len(vectorOnes[0])*percent)
