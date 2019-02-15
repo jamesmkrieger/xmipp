@@ -2,7 +2,7 @@
 
 from keras.callbacks import TensorBoard, ModelCheckpoint
 from keras.models import Model
-from keras.layers import Input, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Flatten, Dense, concatenate, Subtract
+from keras.layers import Input, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Flatten, Dense, concatenate, Subtract, SeparableConv2D, GlobalAveragePooling2D
 from keras.optimizers import *
 import tensorflow as tf
 import cv2
@@ -19,6 +19,7 @@ from time import time
 import keras
 from keras import callbacks
 from keras.callbacks import Callback
+from keras import regularizers
 
 #batch_size = 516 # Number of boxes per batch
 
@@ -166,14 +167,39 @@ def createValidationData(pathsExp, labels_vector, numOut, percent=0.1):
 
 def constructModel(Xdim, numOut):
     inputLayer = Input(shape=(Xdim,Xdim,1), name="input")
-    L = Conv2D(16, (11,11), activation="relu") (inputLayer)
+
+#    #First network model
+#    L = Conv2D(16, (11,11), activation="relu") (inputLayer)
+#    L = BatchNormalization()(L)
+#    L = MaxPooling2D()(L)
+#    L = Conv2D(16, (5,5), activation="relu") (L)
+#    L = BatchNormalization()(L)
+#    L = MaxPooling2D()(L)
+#    L = Dropout(0.2)(L)
+#    L = Flatten() (L)
+
+    #Second network model
+    r_hyp = 0.001
+    L = SeparableConv2D(32, (64, 64), activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(inputLayer)
     L = BatchNormalization()(L)
-    L = MaxPooling2D()(L)
-    L = Conv2D(16, (5,5), activation="relu") (L)
+
+    L = SeparableConv2D(64, 3, activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(L)
     L = BatchNormalization()(L)
-    L = MaxPooling2D()(L)
-    L = Dropout(0.2)(L)
-    L = Flatten() (L)
+    L = MaxPooling2D(2)(L)
+    
+    L = SeparableConv2D(128, 3, activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(L)
+    L = BatchNormalization()(L)
+    
+    L = SeparableConv2D(128, 3, activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(L)
+    L = BatchNormalization()(L)
+    L = MaxPooling2D(2)(L)
+    
+    L = SeparableConv2D(256, 3, activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(L)
+    L = BatchNormalization()(L)
+    L = GlobalAveragePooling2D()(L)
+    L = Dense(256, activation='relu', kernel_regularizer=regularizers.l2(0.001))(L)
+    L = BatchNormalization()(L)
+
     if numOut>2:
         L = Dense(numOut, name="output", activation="softmax") (L)
     elif numOut==2:
