@@ -178,27 +178,44 @@ def constructModel(Xdim, numOut):
 #    L = Dropout(0.2)(L)
 #    L = Flatten() (L)
 
-    #Second network model
-    r_hyp = 0.001
-    L = SeparableConv2D(32, (64, 64), activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(inputLayer)
-    L = BatchNormalization()(L)
 
-    L = SeparableConv2D(64, 3, activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(L)
+    #Second network model
+    L = Conv2D(16, (33,33), activation="relu") (inputLayer)
     L = BatchNormalization()(L)
-    L = MaxPooling2D(2)(L)
-    
-    L = SeparableConv2D(128, 3, activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(L)
+    L = MaxPooling2D()(L)
+    L = Conv2D(32, (11,11), activation="relu") (L)
     L = BatchNormalization()(L)
-    
-    L = SeparableConv2D(128, 3, activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(L)
+    L = MaxPooling2D()(L)
+    L = Conv2D(64, (5,5), activation="relu") (L)
     L = BatchNormalization()(L)
-    L = MaxPooling2D(2)(L)
-    
-    L = SeparableConv2D(256, 3, activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(L)
-    L = BatchNormalization()(L)
-    L = GlobalAveragePooling2D()(L)
+    L = MaxPooling2D()(L)
+    L = Dropout(0.2)(L)
+    L = Flatten() (L)
     L = Dense(256, activation='relu', kernel_regularizer=regularizers.l2(0.001))(L)
     L = BatchNormalization()(L)
+
+
+#    #Third network model
+#    r_hyp = 0.001
+#    L = SeparableConv2D(32, (64, 64), activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(inputLayer)
+#    L = BatchNormalization()(L)
+#
+#    L = SeparableConv2D(64, 3, activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(L)
+#    L = BatchNormalization()(L)
+#    L = MaxPooling2D(2)(L)
+#    
+#    L = SeparableConv2D(128, 3, activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(L)
+#    L = BatchNormalization()(L)
+#    
+#    L = SeparableConv2D(128, 3, activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(L)
+#    L = BatchNormalization()(L)
+#    L = MaxPooling2D(2)(L)
+#    
+#    L = SeparableConv2D(256, 3, activation='relu', kernel_regularizer=regularizers.l2(r_hyp))(L)
+#    L = BatchNormalization()(L)
+#    L = GlobalAveragePooling2D()(L)
+#    L = Dense(256, activation='relu', kernel_regularizer=regularizers.l2(0.001))(L)
+#    L = BatchNormalization()(L)
 
     if numOut>2:
         L = Dense(numOut, name="output", activation="softmax") (L)
