@@ -44,24 +44,20 @@ void ProgResLocalFilter::readParams()
 void ProgResLocalFilter::defineParams()
 {
 	addUsageLine("This function performs a local filter of a map/tomogram based on the local resolution values");
-	addParamsLine("  --vol <vol_file=\"\">   			: Volume");
-	addParamsLine("  --resvol <vol_file=\"\">				: Resolution map");
-	addParamsLine("  -o <output=\"MGresolution.vol\">	: Local resolution volume (in Angstroms)");
+	addParamsLine("  --vol <vol_file=\"\">   			        : Volume");
+	addParamsLine("  --resvol <vol_file=\"\">					: Resolution map");
+	addParamsLine("  -o <output=\"MGresolution.vol\">			: Local resolution volume (in Angstroms)");
 	addParamsLine("  --filteredMap <output=\"filteredMap.vol\">	: Local resolution volume filtered (in Angstroms)");
-	addParamsLine("  [--sampling_rate <s=1>]   			: Sampling rate (A/px)");
-	addParamsLine("  [--step <s=0.25>]       			: The resolution is computed at a number of frequencies between minimum and");
-	addParamsLine("  [--significance <s=0.95>]       	: The level of confidence for the hypothesis test.");
-	addParamsLine("  [--threads <s=4>]               	: Number of threads");
+	addParamsLine("  [--sampling_rate <s=1>]   					: Sampling rate (A/px)");
+	addParamsLine("  [--step <s=0.25>]       					: The resolution is computed at a number of frequencies between minimum and");
+	addParamsLine("  [--significance <s=0.95>]       			: The level of confidence for the hypothesis test.");
+	addParamsLine("  [--threads <s=4>]               			: Number of threads");
 }
 
 
 void ProgResLocalFilter::produceSideInfo()
 {
 	std::cout << "Starting..." << std::endl;
-	std::cout << "           " << std::endl;
-	std::cout << "IMPORTANT: If the angular step of the tilt series is higher than 3 degrees" << std::endl;
-	std::cout << "           then, the tomogram is not properly for MonoTomo. Despite this is not "<< std::endl;
-	std::cout << "           desired, MonoTomo will try to compute the local resolution." << std::endl;
 	std::cout << "           " << std::endl;
 
 	Image<double> V;
@@ -72,6 +68,7 @@ void ProgResLocalFilter::produceSideInfo()
 	std::cout << "Map read" << std::endl;
 	MultidimArray<double> &inputVol = V();
 
+	//It applies a smoothing of 10 px in the image borders
 	int N_smoothing = 10;
 
 	int siz_z = ZSIZE(inputVol)*0.5;
@@ -124,11 +121,11 @@ void ProgResLocalFilter::produceSideInfo()
 
 
 	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(fftV)
-		DIRECT_MULTIDIM_ELEM(inputVol2, n) = fabs(DIRECT_MULTIDIM_ELEM(fftV, n));
+		DIRECT_MULTIDIM_ELEM(inputVol2, n) = log(fabs(DIRECT_MULTIDIM_ELEM(fftV, n)));
 
-//	Image<double> filteredvolume;
-//	filteredvolume = inputVol2;
-//	filteredvolume.write("fourier.vol");
+	Image<double> filteredvolume;
+	filteredvolume = inputVol2;
+	filteredvolume.write("fourier.vol");
 	iu.resizeNoCopy(Ndim, Zdim, Ydim, Xdim);
 
 
@@ -192,7 +189,7 @@ void ProgResLocalFilter::produceSideInfo()
 	}
 	double mean = sumres/counter;
 	sigma = sumres2/counter-mean*mean;
-
+	std::cout << "sigma = " << sigma << std::endl;
 //	double u;
 //
 //	VEC_ELEM(freq_fourier,0) = 1e-38;
@@ -209,7 +206,7 @@ void ProgResLocalFilter::run()
 	produceSideInfo();
 
 
-	//exit(0);
+	exit(0);
 	//Determining the frequency range;
 	int lowIdx, highIdx;
 	double lowestfreq, highestfreq, freqL, freqH, freq;
