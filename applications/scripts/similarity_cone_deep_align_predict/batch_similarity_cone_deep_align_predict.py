@@ -15,9 +15,8 @@ import sys
 import xmippLib
 import time
 from keras.models import load_model
+#import pyworkflow.em.metadata as md
 from shutil import copy
-import pyworkflow.em.metadata as md
-
 
 def loadData(mdIn, mdExp):
     XProj=None
@@ -49,22 +48,17 @@ def loadData(mdIn, mdExp):
 
 if __name__=="__main__":
     fnExp = sys.argv[1]
-    #fnOName = sys.argv[2]
     fnODir = sys.argv[2]
     Xdim = int(sys.argv[3])
     numClassif = int(sys.argv[4])
     numMax=int(sys.argv[5])
+    Nexp = int(sys.argv[6])
 
     print('Predict mode')
     newImage = xmippLib.Image()
-    #copy(fnExp, fnOName)
-    mdExp = xmippLib.MetaData(fnExp)
-    #XProj, XExp, Xdim, Ydim, Nproj, Nexp = loadData(mdProj, mdExp)
-    #AJ no quiero cargar todas las imagenes en memoria
-    #si puedo cargar todas las projs e iterar por las exp
+    testSet = open(fnExp, "r")
 
     sizeBatch=1000
-    Nexp = mdExp.size()
     maxBatchs=np.ceil(float(Nexp)/float(sizeBatch))
     Ypred = np.zeros((Nexp),dtype=np.float64)   
     refPred = np.zeros((Nexp,(numMax*2)+1),dtype=np.float64)    
@@ -73,35 +67,38 @@ if __name__=="__main__":
 	if os.path.exists(os.path.join(fnODir,'modelCone%d.h5'%(i+1))):
 	    models.append(load_model(os.path.join(fnODir,'modelCone%d.h5'%(i+1))))
     if Nexp>sizeBatch:
-        oneXExp = np.zeros((sizeBatch,Xdim,Xdim,1),dtype=np.float64)
+        oneXExp=[np.zeros((sizeBatch, Xdim, Xdim, 1),dtype=np.float64) for i in range(2)]
         YpredAux = np.zeros((sizeBatch,numClassif),dtype=np.float64)
 
     idxExp = 0
     countBatch=0
     numBatch = 0
     done = 0
-    for row in md.iterRows(mdExp):
-	objIdExp = row.getObjId()
-	#print("AAAA", objIdExp)
-	#print("BBBB", mdExp.getValue(xmippLib.MDL_ITEM_ID,objIdExp))
+    count=0
+    lines = trainSet.readlines()
+    for line in lines:
 	if numBatch==(maxBatchs-1) and done==0:
-	    oneXExp = np.zeros((Nexp-idxExp,Xdim,Xdim,1),dtype=np.float64)
+	    oneXExp=[np.zeros((Nexp-idxExp, Xdim, Xdim, 1),dtype=np.float64) for i in range(2)]
             YpredAux = np.zeros((Nexp-idxExp,numClassif),dtype=np.float64)
 	    done=1
-	fnExp = mdExp.getValue(xmippLib.MDL_IMAGE,objIdExp)
+	fnExp = line.split()[0]
 	Iexp = xmippLib.Image(fnExp)
-        oneXExp[countBatch,:,:,0] = Iexp.getData()
-	oneXExp[countBatch,:,:,0] = (oneXExp[countBatch,:,:,0]-np.mean(oneXExp[countBatch,:,:,0]))/np.std(oneXExp[countBatch,:,:,0])
+        oneXExp[0][countBatch,:,:,0] = Iexp.getData()
+	oneXExp[0][countBatch,:,:,0] = (oneXExp[0][countBatch,:,:,0]-np.mean(oneXExp[0][countBatch,:,:,0]))/np.std(oneXExp[0][countBatch,:,:,0])
+	fnProj = line.split()[1]
+	Iproj = xmippLib.Image(fnProj)
+        oneXExp[1][countBatch,:,:,0] = Iproj.getData()
+	oneXExp[1][countBatch,:,:,0] = (oneXExp[1][countBatch,:,:,0]-np.mean(oneXExp[1][countBatch,:,:,0]))/np.std(oneXExp[1][countBatch,:,:,0])
 	countBatch+=1
 	idxExp+=1
-	refPred[idxExp-1,0] = mdExp.getValue(xmippLib.MDL_ITEM_ID,objIdExp)
+	refPred[idxExp-1,0] = count
+        count=count+1
 	if ((idxExp%sizeBatch)==0 or idxExp==Nexp):
 	    countBatch = 0
             for i in range(numClassif):
 	        model = models[i]
                 out = model.predict([oneXExp])
 		YpredAux[:,i] = out[:,0]
-	    #print("AQUIIII ",idxExp-sizeBatch, idxExp, YpredAux[:,i].shape, out[:,0].shape, Nexp-idxExp+1, numBatch*sizeBatch, Nexp-1)
 	    if numBatch==(maxBatchs-1):
 		for n in range(numMax):
                     Ypred[numBatch*sizeBatch:Nexp] = np.max(YpredAux, axis=1)

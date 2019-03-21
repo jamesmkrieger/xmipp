@@ -126,13 +126,16 @@ def createValidationData(pathsExp, labels_vector, numOut, percent=0.1):
 	#sizeZeros=sizeValData-sizeOnes
 	labels = np.array(labels_vector)	
 	vectorOnes = np.where(labels==1)
+	print("vectorOnes",vectorOnes)
 	numberOnes = int(len(vectorOnes[0])*percent)
 	vectorZeros = np.where(labels==0)
 	numberZeros = int(len(vectorZeros[0])*percent)
+	print("ones and zeros ", len(vectorOnes[0]), len(vectorZeros[0]), numberOnes, numberZeros)
 	if numberZeros>numberOnes:
 	    numberZeros= numberOnes
 	elif numberOnes>numberZeros:
 	    numberOnes=numberZeros
+	print("ones and zeros ", numberOnes, numberZeros)
         for i in range(numberOnes):
             labels = np.array(labels_vector)
 	    vectorOnes = np.where(labels==1)
@@ -178,21 +181,40 @@ def constructModel(Xdim, numOut):
 #    L = Dropout(0.2)(L)
 #    L = Flatten() (L)
 
+#    L = Dense(256, activation='relu', kernel_regularizer=regularizers.l2(0.001))(L)
+#    L = BatchNormalization()(L)
+
 
     #Second network model
-    L = Conv2D(16, (33,33), activation="relu") (inputLayer)
+    L = Conv2D(16, (33,33), activation="relu") (inputLayer) #33 filter size before
     L = BatchNormalization()(L)
     L = MaxPooling2D()(L)
-    L = Conv2D(32, (11,11), activation="relu") (L)
+    L = Conv2D(32, (11,11), activation="relu") (L) #11 filter size before
     L = BatchNormalization()(L)
     L = MaxPooling2D()(L)
-    L = Conv2D(64, (5,5), activation="relu") (L)
+    L = Conv2D(64, (5,5), activation="relu") (L) #5 filter size before
     L = BatchNormalization()(L)
     L = MaxPooling2D()(L)
     L = Dropout(0.2)(L)
     L = Flatten() (L)
     L = Dense(256, activation='relu', kernel_regularizer=regularizers.l2(0.001))(L)
     L = BatchNormalization()(L)
+
+#    #Fourth network model
+#    L = Conv2D(16, (11,11), activation="relu") (inputLayer)
+#    L = BatchNormalization()(L)
+#    L = MaxPooling2D()(L)
+#    L = Dropout(0.2)(L)
+#    L = Conv2D(32, (11,11), activation="relu") (L)
+#    L = BatchNormalization()(L)
+#    L = Dropout(0.2)(L)
+#    L = Conv2D(64, (11,11), activation="relu") (L)
+#    L = BatchNormalization()(L)
+#    L = MaxPooling2D()(L)
+#    L = Dropout(0.2)(L)
+#    L = Flatten() (L)
+#    L = Dense(512, activation='relu', kernel_regularizer=regularizers.l2(0.001))(L)
+#    L = BatchNormalization()(L)
 
 
 #    #Third network model
@@ -232,6 +254,10 @@ if __name__=="__main__":
     Xdim = int(sys.argv[6])
     numOut = int(sys.argv[7])
     batch_size = int(sys.argv[8])
+    gpuId = sys.argv[9]
+#    if gpuId is not -1:
+#        os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+#	 os.environ["CUDA_VISIBLE_DEVICES"] = gpuId
 
     mdExp = xmippLib.MetaData(fnXmdExp)
     Nexp = mdExp.size()
@@ -246,9 +272,10 @@ if __name__=="__main__":
         pathsExp.append(fnExp)
         labels_vector.append(int(labels[cont]))
         cont+=1
-    print(len(labels_vector))
+    print(cont, len(labels_vector))
+
     x_val, y_val = createValidationData(pathsExp, labels_vector, numOut, 0.2)
-    np.savetxt(os.path.join(fnODir,'pruebaYval.txt'), y_val)
+    #np.savetxt(os.path.join(fnODir,'pruebaYval.txt'), y_val)
     print(len(labels_vector))
     #END AJ
 
@@ -304,17 +331,15 @@ if __name__=="__main__":
     #myValLoss=np.zeros((1))
     #myValLoss[0] = history.history['val_loss'][-1]
     #np.savetxt(os.path.join(fnODir,modelFn+'.txt'), myValLoss)
-    #model.save(os.path.join(fnODir,modelFn+'.h5'))
+    model.save(name_model) #AJ necesario o no???
     elapsed_time = time() - start_time
     print("Time in training model: %0.10f seconds." % elapsed_time)
+    print("name_model: ", name_model)
 
     model = load_model(name_model)
     Ypred = model.predict(x_val)
-    np.savetxt(os.path.join(fnODir,'pruebaYpred.txt'), Ypred)
-    #mae= np.mean(np.absolute(Ypred-y_val))
     from sklearn.metrics import mean_absolute_error
     mae = mean_absolute_error(y_val, Ypred)
     print("Final model mean absolute error val_loss", mae)
-
 
 
