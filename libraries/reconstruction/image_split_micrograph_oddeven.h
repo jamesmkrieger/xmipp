@@ -23,21 +23,12 @@
  *  e-mail address 'xmipp@cnb.csic.es'
  ***************************************************************************/
 
-#ifndef _PROG_WEIGHT_CDF
-#define _PROG_WEIGHT_CDF
+#ifndef _PROG_SPLIT_MIC
+#define _PROG_SPLIT_MIC
 
 #include <core/xmipp_program.h>
-#include <core/xmipp_image.h>
-#include <core/metadata.h>
-#include <core/xmipp_fft.h>
-#include <core/xmipp_fftw.h>
-#include <math.h>
-#include <limits>
-#include <complex>
-#include <data/fourier_filter.h>
-#include <data/filters.h>
 
-class ProgWeightCdf: public XmippProgram
+class ProgSplitMic: public XmippProgram
 {
 public:
 	/// Name of the input images
@@ -45,9 +36,6 @@ public:
 
     /// Name of the output image
     FileName fnOut;
-
-    /// sampling rate, minimum resolution, and maximum resolution */
-    double sampling, minRes, maxRes, R;
 
 
 
@@ -61,31 +49,8 @@ public:
     /// Define input parameters
     void defineParams();
 
-    ///
-    void monogenicAmplitude2D(MultidimArray< std::complex<double> > &myfftV,
-    		double freq, double freqH, double freqL, MultidimArray<double> &amplitude, int count, FileName fnDebug);
-
-    void resolution2eval(int &count_res, double step,
-    								double &resolution, double &last_resolution,
-    								double &freq, double &freqL,
-    								int &last_fourier_idx,
-    								bool &continueIter,	bool &breakIter,
-    								bool &doNextIteration);
-
     /// Execute
     void run();
-
-public:
-    Image<int> mask;
-    MultidimArray<double> iu, VRiesz; // Inverse of the frequency
-	MultidimArray< std::complex<double> > fftV, *fftN; // Fourier transform of the input volume
-	FourierTransformer transformer_inv;
-	MultidimArray< std::complex<double> > fftVRiesz, fftVRiesz_aux;
-	FourierFilter lowPassFilter, FilterBand;
-	bool halfMapsGiven;
-	Image<double> Vfiltered, VresolutionFiltered;
-	Matrix1D<double> freq_fourier;
-	Matrix2D<double> resolutionMatrix, maskMatrix;
 };
 
 #endif
