@@ -398,6 +398,14 @@ double imedDistance(const MultidimArray<double>& I1, const MultidimArray<double>
 */
 double imedNormalizedDistance(const MultidimArray<double>& I1, const MultidimArray<double>& I2);
 
+/** Masked correlation based on standard deviation values.
+*/
+double correlationMasked(const MultidimArray<double>& I1, const MultidimArray<double>& I2);
+
+/** Weighted correlation based on differences between images.
+*/
+double correlationWeighted(MultidimArray<double>& I1, MultidimArray<double>& I2);
+
 /** SVD correlation.
  *
  */
@@ -456,6 +464,10 @@ double bestShift(const MultidimArray< std::complex<double> > &FFTI1,
 void bestShift(const MultidimArray<double> &I1, const MultidimArray<double> &I2,
                double &shiftX, double &shiftY, double &shiftZ, CorrelationAux &aux,
                const MultidimArray<int> *mask=NULL);
+
+template<typename T>
+T bestShift(MultidimArray<T> &Mcorr,
+               T &shiftX, T &shiftY, const MultidimArray<int> *mask, int maxShift);
 
 /** Translational search (non-wrapping)
  * @ingroup Filters

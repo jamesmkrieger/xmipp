@@ -565,7 +565,7 @@ public:
 			std::cout << "   K1,K2,sin=" << K1 << " " << K2 << " "
 			<< std::endl;
 			std::cout << "   Q0=" << Q0 << std::endl;
-			std::cout << " VPP =" << VPP << std::endl;
+			std::cout << "   VPP=" << VPP << std::endl;
 			std::cout << "   CTF without damping="
 			<< -(Ksin*sine_part - Kcos*cosine_part) << std::endl;
 		}
@@ -869,8 +869,6 @@ public:
     double sqV;
     /// Sqrt angle
     double sqrt_angle;
-    /// Gain for the second Gaussian term
-    double gaussian_K2;
     /// Second Gaussian width U
     double sigmaU2;
     /// Second Gaussian width V
