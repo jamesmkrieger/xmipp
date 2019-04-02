@@ -186,13 +186,13 @@ def constructModel(Xdim, numOut):
 
 
     #Second network model
-    L = Conv2D(16, (33,33), activation="relu") (inputLayer) #33 filter size before
+    L = Conv2D(16, (int(Xdim/3), int(Xdim/3)), activation="relu") (inputLayer) #33 filter size before
     L = BatchNormalization()(L)
     L = MaxPooling2D()(L)
-    L = Conv2D(32, (11,11), activation="relu") (L) #11 filter size before
+    L = Conv2D(32, (int(Xdim/10), int(Xdim/10)), activation="relu") (L) #11 filter size before
     L = BatchNormalization()(L)
     L = MaxPooling2D()(L)
-    L = Conv2D(64, (5,5), activation="relu") (L) #5 filter size before
+    L = Conv2D(64, (int(Xdim/20), int(Xdim/20)), activation="relu") (L) #5 filter size before
     L = BatchNormalization()(L)
     L = MaxPooling2D()(L)
     L = Dropout(0.2)(L)
