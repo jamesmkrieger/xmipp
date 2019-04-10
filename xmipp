@@ -974,6 +974,7 @@ def addDeepLearninModel(login, modelPath='', update=None):
         usageDL()
 
     modelPath = modelPath.rstrip("/")
+    modelPath = 'src/xmipp/models/'+modelPath #AJ ???
     if not os.path.isdir(modelPath):
         print("'modelName' must coincide with a directory "
               "placed at 'src/xmipp/models/'. \n"

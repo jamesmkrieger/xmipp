@@ -183,7 +183,7 @@ def update(destination=None, url=None, dataset=None):
 def upload(login, tgzName, remoteFolder, update):
     """ Upload a dataset to our repository
     """
-    localFn = os.path.join("models", tgzName)
+    localFn = os.path.join(tgzName) #"models", 
     if not os.path.exists(localFn):
         sys.exit("ERROR: local folder/file %s does not exist." % localFn)
 
