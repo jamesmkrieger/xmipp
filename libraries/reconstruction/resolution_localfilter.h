@@ -63,7 +63,7 @@ public:
 	double freq_step, trimBound, significance;
 
 	/** The search for resolutions is linear or inverse**/
-	bool noiseOnlyInHalves, automaticMode;
+	bool onlyLocalfilter;
 
 public:
 
@@ -71,22 +71,11 @@ public:
     void readParams();
     void produceSideInfo();
 
-    /* Mogonogenid amplitud of a volume, given an input volume,
-     * the monogenic amplitud is calculated and low pass filtered at frequency w1*/
-    void amplitudeMonogenicSignal3D(MultidimArray< std::complex<double> > &myfftV,
-    		double freq, double freqH, double freqL, MultidimArray<double> &amplitude,
-    		int count, FileName fnDebug);
+    /* A local filter accordingly to the local resolution values */
 
-    void postProcessingLocalResolutions(MultidimArray<double> &resolutionVol,
-    		std::vector<double> &list, MultidimArray<double> &resolutionChimera,
-    		double &cut_value, MultidimArray<int> &pMask, double &resolutionThreshold);
-
-    void resolution2eval(int &count_res, double step,
-    								double &resolution, double &last_resolution,
-    								double &freq, double &freqL,
-    								int &last_fourier_idx,
-    								bool &continueIter,	bool &breakIter,
-    								bool &doNextIteration);
+    void localfilteredMap(MultidimArray< std::complex<double> > &myfftV,
+            MultidimArray<double> &localfilteredVol,
+            double &minRes, double &maxRes, double &step);
 
     void run();
 
@@ -96,6 +85,7 @@ public:
 	FourierTransformer transformer_inv;
 	Image<double> Vfiltered, VresolutionFiltered, resVol;
 	Matrix1D<double> freq_fourier;
+	size_t len;
 	double sigma;
 };
 //@}

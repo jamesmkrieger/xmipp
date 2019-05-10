@@ -36,7 +36,7 @@ void ProgResLocalFilter::readParams()
 	fnFilt = getParam("--filteredMap");
 	sampling = getDoubleParam("--sampling_rate");
 	freq_step = getDoubleParam("--step");
-	significance = getDoubleParam("--significance");
+	onlyLocalfilter = checkParam("--nosharpening");
 	nthrs = getIntParam("--threads");
 }
 
@@ -49,8 +49,9 @@ void ProgResLocalFilter::defineParams()
 	addParamsLine("  -o <output=\"MGresolution.vol\">			: Local resolution volume (in Angstroms)");
 	addParamsLine("  --filteredMap <output=\"filteredMap.vol\">	: Local resolution volume filtered (in Angstroms)");
 	addParamsLine("  [--sampling_rate <s=1>]   					: Sampling rate (A/px)");
+	addParamsLine("  [--nosharpening]       					: Do not apply sharpnening, only it only applies a local filter"
+				  " according to local resolution values");
 	addParamsLine("  [--step <s=0.25>]       					: The resolution is computed at a number of frequencies between minimum and");
-	addParamsLine("  [--significance <s=0.95>]       			: The level of confidence for the hypothesis test.");
 	addParamsLine("  [--threads <s=4>]               			: Number of threads");
 }
 
@@ -109,7 +110,6 @@ void ProgResLocalFilter::produceSideInfo()
 			}
 		}
 	}
-	std::cout << "No fallo" << std::endl;
 
 	FourierTransformer transformer;
 	transformer.FourierTransform(inputVol, fftV);
@@ -117,15 +117,15 @@ void ProgResLocalFilter::produceSideInfo()
 	MultidimArray<double> inputVol2;
 	size_t Zdim, Ydim, Xdim, Ndim;
 	fftV.getDimensions(Xdim, Ydim, Zdim, Ndim);
-	inputVol2.resizeNoCopy(Ndim, Zdim, Ydim, Xdim);
-
-
-	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(fftV)
-		DIRECT_MULTIDIM_ELEM(inputVol2, n) = log(fabs(DIRECT_MULTIDIM_ELEM(fftV, n)));
-
-	Image<double> filteredvolume;
-	filteredvolume = inputVol2;
-	filteredvolume.write("fourier.vol");
+//	inputVol2.resizeNoCopy(Ndim, Zdim, Ydim, Xdim);
+//
+//
+//	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(fftV)
+//		DIRECT_MULTIDIM_ELEM(inputVol2, n) = log(fabs(DIRECT_MULTIDIM_ELEM(fftV, n)));
+//
+//	Image<double> filteredvolume;
+//	filteredvolume = inputVol2;
+//	filteredvolume.write("fourier.vol");
 	iu.resizeNoCopy(Ndim, Zdim, Ydim, Xdim);
 
 
@@ -155,7 +155,7 @@ void ProgResLocalFilter::produceSideInfo()
 	}
 	V.clear();
 
-	size_t len;
+
 	if ( (ZSIZE(fftV) <= XSIZE(fftV)) && (ZSIZE(fftV) <= YSIZE(fftV)) )
 		len = ZSIZE(fftV);
 	if ( (YSIZE(fftV) <= ZSIZE(fftV)) && (YSIZE(fftV) <= XSIZE(fftV)) )
@@ -186,35 +186,37 @@ void ProgResLocalFilter::produceSideInfo()
 			maxRes=resVal;
 		if (resVal<minRes)
 			minRes=resVal;
+		++counter;
 	}
 	double mean = sumres/counter;
 	sigma = sumres2/counter-mean*mean;
 	std::cout << "sigma = " << sigma << std::endl;
-//	double u;
-//
-//	VEC_ELEM(freq_fourier,0) = 1e-38;
-//	for(size_t k=0; k<ZSIZE(fftV); ++k)
-//	{
-//		FFT_IDX2DIGFREQ(k,ZSIZE(pMask), u);
-//		VEC_ELEM(freq_fourier,k) = u;
-//	}
+	double u;
+
+	VEC_ELEM(freq_fourier,0) = 1e-38;
+	for(size_t k=0; k<len; ++k)
+	{
+		FFT_IDX2DIGFREQ(k,len, u);
+		VEC_ELEM(freq_fourier,k) = u;
+	}
 }
 
-
-void ProgResLocalFilter::run()
+void ProgResLocalFilter::localfilteredMap(MultidimArray< std::complex<double> > &myfftV,
+        MultidimArray<double> &localfilteredVol,
+        double &minRes, double &maxRes, double &step)
 {
-	produceSideInfo();
 
-
-	exit(0);
 	//Determining the frequency range;
 	int lowIdx, highIdx;
 	double lowestfreq, highestfreq, freqL, freqH, freq;
 	lowestfreq = sampling/maxRes;
 	highestfreq = sampling/minRes;
 
-	DIGFREQ2FFT_IDX(lowestfreq, ZSIZE(resVol()), lowIdx);
-	DIGFREQ2FFT_IDX(highestfreq, ZSIZE(resVol()), highIdx);
+	std::cout << "max = " << lowestfreq << "  " << maxRes << std::endl;
+	std::cout << "min = " << highestfreq << "  " << minRes << std::endl;
+
+	DIGFREQ2FFT_IDX(lowestfreq, len, lowIdx);
+	DIGFREQ2FFT_IDX(highestfreq, len, highIdx);
 
 	MultidimArray< std::complex<double> > fftVaux;
 
@@ -225,12 +227,19 @@ void ProgResLocalFilter::run()
 	std::cout << "freq = " << highIdx << std::endl;
 	std::cout << "freq = " << lowIdx << std::endl;
 
+	double lastRes=1e38;
+
 
 	for (double idx = lowIdx; idx < highIdx; idx++)
 	{
-		FFT_IDX2DIGFREQ(idx, ZSIZE(resVol()), freq);
+		FFT_IDX2DIGFREQ(idx, len, freq);
+
+		if (lastRes - sampling/freq < step)
+			continue;
 
 		std::cout << "freq = " << freq << std::endl;
+		std::cout << "res = " << sampling/freq << std::endl;
+
 		freqL = freq - 0.02;
 		if (freqL < 0)
 			freqL = 0.001;
@@ -264,28 +273,254 @@ void ProgResLocalFilter::run()
 				DIRECT_MULTIDIM_ELEM(fftVaux, n) = DIRECT_MULTIDIM_ELEM(fftV, n);
 				DIRECT_MULTIDIM_ELEM(fftVaux, n) *= 0.5*(1+cos((un-freq)*ideltah));//H;
 			}
+			if (freqL<=un && un<=freqH)
+			{
+				//double H=0.5*(1+cos((un-w1)*ideltal));
+				DIRECT_MULTIDIM_ELEM(fftVaux, n) = DIRECT_MULTIDIM_ELEM(fftV, n);
+			}
 		}
 
 		transformer_inv.inverseFourierTransform(fftVaux, filtered_aux);
-		double stdres = sampling/sigma;
+
+		double stdres = sampling/sqrt(sigma);
+
+		//
+		double sumfreq = 0, sumfreq2 = 0;
+		long counter = 0;
+		//
 
 		FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(filtered_aux)
 		{
 			double weight, sumweight, digitalfreq;
 			//TODO: make the converstion in the produdesideinfo
 			digitalfreq = sampling/DIRECT_MULTIDIM_ELEM(resVol, n);
+			counter = 0;
+			for (double idx = lowIdx; idx < highIdx; idx++)
+				{
+				double freq_aux;
+				FFT_IDX2DIGFREQ(idx, len, freq_aux);
+				sumfreq += freq_aux;
+				sumfreq2 += freq_aux*freq_aux;
+				}
 
-			weight = exp(-(digitalfreq - freq)*(digitalfreq - freq)/stdres);
+			double mean = sumfreq/counter;
+			stdres = sumfreq2/counter-mean*mean;
+
+			weight = exp(-(digitalfreq - freq)*(digitalfreq - freq)/(stdres));
 			DIRECT_MULTIDIM_ELEM(filteredMap, n) += weight*DIRECT_MULTIDIM_ELEM(filtered_aux, n);
 			sumweight += weight;
 		}
-
-
+		lastRes = sampling/freq;
 	}
+}
 
-	Image<double> saveMap;
-	saveMap = filteredMap;
-	saveMap.write(fnOut);
+
+
+
+void ProgResLocalFilter::run()
+{
+	produceSideInfo();
+
+	//Determining the frequency range;
+	int lowIdx, highIdx;
+	double lowestfreq, highestfreq, freqL, freqH, freq;
+	lowestfreq = sampling/maxRes;
+	highestfreq = sampling/minRes;
+
+	std::cout << "max = " << lowestfreq << "  " << maxRes << std::endl;
+	std::cout << "min = " << highestfreq << "  " << minRes << std::endl;
+
+	DIGFREQ2FFT_IDX(lowestfreq, len, lowIdx);
+	DIGFREQ2FFT_IDX(highestfreq, len, highIdx);
+
+	MultidimArray< std::complex<double> > fftVaux;
+
+	MultidimArray<double> filteredMap, filtered_aux;
+	filtered_aux.resizeNoCopy(resVol());
+	filteredMap.initZeros(resVol());
+
+	std::cout << "freq = " << highIdx << std::endl;
+	std::cout << "freq = " << lowIdx << std::endl;
+
+	if (onlyLocalfilter== true)
+	{
+		std::cout << "Applying only a local filter. The map will not be sharpened" << std::endl;
+
+		double lastRes=1e38;
+
+		for (double idx = lowIdx; idx < highIdx; idx++)
+		{
+			FFT_IDX2DIGFREQ(idx, len, freq);
+
+			if (lastRes - sampling/freq < freq_step)
+				continue;
+
+			std::cout << "freq = " << freq << std::endl;
+			std::cout << "res = " << sampling/freq << std::endl;
+
+			freqL = freq - 0.02;
+			if (freqL < 0)
+				freqL = 0.001;
+
+			freqH = freq + 0.02;
+
+			if (freqH > 0.5)
+				freqH = 0.5;
+
+			fftVaux.initZeros(fftV);
+
+			// Filter the input volume
+			long n=0;
+			double ideltal=PI/(freq-freqH);
+			double ideltah=PI/(freqL-freq);
+
+
+			FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(fftVaux)
+			{
+				double iun=DIRECT_MULTIDIM_ELEM(iu,n);
+				double un=1.0/iun;
+				if (un <= freqH && freq <= un)
+				{
+					//double H=0.5*(1+cos((un-w1)*ideltal));
+					DIRECT_MULTIDIM_ELEM(fftVaux, n) = DIRECT_MULTIDIM_ELEM(fftV, n);
+					DIRECT_MULTIDIM_ELEM(fftVaux, n) *= 0.5*(1+cos((un-freq)*ideltal));//H;
+				}
+				if (freqL<=un && un<=freq)
+				{
+					//double H=0.5*(1+cos((un-w1)*ideltal));
+					DIRECT_MULTIDIM_ELEM(fftVaux, n) = DIRECT_MULTIDIM_ELEM(fftV, n);
+					DIRECT_MULTIDIM_ELEM(fftVaux, n) *= 0.5*(1+cos((un-freq)*ideltah));//H;
+				}
+				if (freqL<=un && un<=freqH)
+				{
+					//double H=0.5*(1+cos((un-w1)*ideltal));
+					DIRECT_MULTIDIM_ELEM(fftVaux, n) = DIRECT_MULTIDIM_ELEM(fftV, n);
+				}
+			}
+
+			transformer_inv.inverseFourierTransform(fftVaux, filtered_aux);
+
+			double stdres = sampling/sqrt(sigma);
+
+			FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(filtered_aux)
+			{
+				double weight, sumweight, digitalfreq;
+				//TODO: make the converstion in the produdesideinfo
+				digitalfreq = sampling/DIRECT_MULTIDIM_ELEM(resVol, n);
+
+				weight = exp(-(digitalfreq - freq)*(digitalfreq - freq)/(stdres*stdres));
+				DIRECT_MULTIDIM_ELEM(filteredMap, n) += weight*DIRECT_MULTIDIM_ELEM(filtered_aux, n);
+				sumweight += weight;
+			}
+			lastRes = sampling/freq;
+		}
+
+		Image<double> saveMap;
+		saveMap = filteredMap;
+		saveMap.write(fnOut);
+	}
+	else
+	{
+//		std::cout << "Applying only a local sharpening" << std::endl;
+//
+//        MultidimArray<double> auxVol;
+//        MultidimArray<double> operatedfiltered, Vk, filteredVol;
+//        double lastnorm=0, lastporc=1;
+//        double freq;
+//        double step = 0.2;
+//        int idx, bool1=1, bool2=1;
+//        int lastidx = -1;
+//
+//		size_t Niter = 5;
+//
+//		for (size_t i = 1; i<=Niter; ++i)
+//        {
+//			//std::cout << "----------------Iteration " << i << "----------------" << std::endl;
+//			auxVol = filteredVol;
+//			FourierTransformer transformer;
+//			transformer.FourierTransform(auxVol, fftV);
+//
+//			localfilteredMap(fftV, operatedfiltered, minRes, maxRes, step);
+//
+//			filteredVol = Vorig;
+//
+//			filteredVol -= operatedfiltered;
+//
+//			//calculate norm for Vorig
+//			if (i==1)
+//			{
+//				FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(Vorig)
+//				{
+//					   normOrig +=(DIRECT_MULTIDIM_ELEM(Vorig,n)*DIRECT_MULTIDIM_ELEM(Vorig,n));
+//				}
+//				normOrig = sqrt(normOrig);
+//				//std::cout << "norma del original  " << normOrig << std::endl;
+//			}
+//
+//
+//			//calculate norm for operatedfiltered
+//			double norm=0;
+//			FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(operatedfiltered)
+//			{
+//					norm +=(DIRECT_MULTIDIM_ELEM(operatedfiltered,n)*DIRECT_MULTIDIM_ELEM(operatedfiltered,n));
+//			}
+//			norm=sqrt(norm);
+//
+//
+//			double porc=lastnorm*100/norm;
+//			//std::cout << "norm " << norm << " percetage " << porc << std::endl;
+//
+//			double subst=porc-lastporc;
+//
+//			if ((subst<1)&&(bool1==1)&&(i>2))
+//			{
+//				bool1=2;
+//				//std::cout << "-----iteration completed-----" << std::endl;
+//			}
+//
+//			lastnorm=norm;
+//			lastporc=porc;
+//
+//			if (i==1 && lambda==1)
+//			{
+//				lambda=(normOrig/norm)/12;
+//				std::cout << "  lambda  " << lambda << std::endl;
+//			}
+//
+//			////Second operator
+//			transformer.FourierTransform(filteredVol, fftV);
+//			localfiltering(fftV, filteredVol, minRes, maxRes, step);
+//
+//			if (i == 1)
+//					Vk = Vorig;
+//			else
+//					Vk = sharpenedMap;
+//
+//			//sharpenedMap=Vk+lambda*(filteredVol);
+//			FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(sharpenedMap)
+//			{
+//				DIRECT_MULTIDIM_ELEM(sharpenedMap,n)=DIRECT_MULTIDIM_ELEM(Vk,n)+
+//									 lambda*DIRECT_MULTIDIM_ELEM(filteredVol,n);
+//									 //-0.01*DIRECT_MULTIDIM_ELEM(Vk,n)*SGN(DIRECT_MULTIDIM_ELEM(Vk,n));
+//				if (DIRECT_MULTIDIM_ELEM(sharpenedMap,n)<-4*desvOutside_Vorig)
+//					DIRECT_MULTIDIM_ELEM(sharpenedMap,n)=-4*desvOutside_Vorig;
+//			}
+//
+////        		double desv_sharp=0;
+////                computeAvgStdev_within_binary_mask(resVol, sharpenedMap, desv_sharp);
+////                std::cout << "desv_sharp = " << desv_sharp << std::endl;
+//
+//			filteredVol = sharpenedMap;
+//
+//			if (bool1==2)
+//			{
+//				Image<double> filteredvolume;
+//				filteredvolume() = sharpenedMap;
+//				filteredvolume.write(fnOut);
+//				break;
+//			}
+//        }
+	}
 
 
 }

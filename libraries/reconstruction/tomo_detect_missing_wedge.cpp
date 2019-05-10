@@ -273,7 +273,7 @@ void ProgDetectMissingWedge::readParams()
     maxFreq = getDoubleParam("--maxFreq");
     planeWidth = getDoubleParam("--width");
     saveMarks = checkParam("--saveMarks");
-    saveMask = checkParam("--saveMask");
+    fnMask = getParam("--saveMask");
 }
 
 // Produce side info -------------------------------------------------------
@@ -317,7 +317,7 @@ void ProgDetectMissingWedge::defineParams()
     addParamsLine(" [--width <w=2>]      : Width of the probe plane");
     addParamsLine(" [--saveMarks]        : Save the magnitude of the FFT with");
     addParamsLine("                      : marks showing the two planes");
-    addParamsLine(" [--saveMask]         : Save a mask for the FFT of this tomogram");
+    addParamsLine(" [--saveMask <file>]         : Save a mask for the FFT of this tomogram");
     addParamsLine("                      : 1=Missing wedge, 0=non missing wedge");
     addExampleLine("xmipp_tomo_detect_missing_wedge -i tomogram.vol");
 }
@@ -326,7 +326,9 @@ void ProgDetectMissingWedge::defineParams()
 void ProgDetectMissingWedge::run()
 {
     produceSideInfo();
-    FileName fn_root=V.name().withoutExtension();
+    FileName fn_root = V.name().withoutExtension();
+    if (fnMask == "")
+    	fnMask = fn_root+"_mask.vol";
 
     MultidimArray<double> * mdaV = &MULTIDIM_ARRAY(V);
 
@@ -357,7 +359,7 @@ void ProgDetectMissingWedge::run()
     {
         Vdraw->clear();
         drawWedge(rotPos, tiltPos, rotNeg, tiltNeg, mdaV, Vmag, &(*Vdraw)());
-        Vdraw->write(fn_root+"_mask.vol");
+        Vdraw->write(fnMask);
     }
 
     std::cout << "Plane1: " << rotPos << " " << tiltPos << std::endl;

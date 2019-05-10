@@ -57,7 +57,7 @@ public:
 	double sampling, minRes, maxRes, R;
 
 	/** Is the volume previously masked?*/
-	int NVoxelsOriginalMask, Nvoxels, nthrs;
+	int NVoxelsOriginalMask, Nvoxels, nthrs, N_smoothing;
 
 	/** Step in digital frequency */
 	double freq_step, trimBound, significance;
@@ -100,7 +100,7 @@ public:
 	FourierFilter lowPassFilter, FilterBand;
 	bool halfMapsGiven;
 	Image<double> Vfiltered, VresolutionFiltered;
-	Matrix1D<double> freq_fourier;
+	Matrix1D<double> freq_fourier, freq_fourier_z, freq_fourier_x, freq_fourier_y;
 	Matrix2D<double> resolutionMatrix, maskMatrix;
 };
 //@}

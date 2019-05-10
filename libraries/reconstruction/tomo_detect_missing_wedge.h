@@ -38,7 +38,7 @@ class ProgDetectMissingWedge: public XmippProgram
 {
 public:
     /// Input volume
-    FileName fn_vol;
+    FileName fn_vol, fnMask;
     
     /// Plane width
     double planeWidth;
