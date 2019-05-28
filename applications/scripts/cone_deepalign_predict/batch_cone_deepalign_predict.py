@@ -72,6 +72,8 @@ if __name__=="__main__":
     for i in range(numClassif):
 	if os.path.exists(os.path.join(fnODir,'modelCone%d.h5'%(i+1))):
 	    models.append(load_model(os.path.join(fnODir,'modelCone%d.h5'%(i+1))))
+	else:
+	    models.append(None)
     if Nexp>sizeBatch:
         oneXExp = np.zeros((sizeBatch,Xdim,Xdim,1),dtype=np.float64)
         YpredAux = np.zeros((sizeBatch,numClassif),dtype=np.float64)
@@ -99,9 +101,13 @@ if __name__=="__main__":
 	    countBatch = 0
             for i in range(numClassif):
 	        model = models[i]
-                out = model.predict([oneXExp])
+		if model is not None:
+                    out = model.predict([oneXExp])
+		else:
+		    myDim= YpredAux.shape
+		    myDim = myDim[0]
+		    out = -1.0*np.zeros((myDim,1),dtype=np.float64)
 		YpredAux[:,i] = out[:,0]
-	    #print("AQUIIII ",idxExp-sizeBatch, idxExp, YpredAux[:,i].shape, out[:,0].shape, Nexp-idxExp+1, numBatch*sizeBatch, Nexp-1)
 	    if numBatch==(maxBatchs-1):
 		for n in range(numMax):
                     Ypred[numBatch*sizeBatch:Nexp] = np.max(YpredAux, axis=1)
