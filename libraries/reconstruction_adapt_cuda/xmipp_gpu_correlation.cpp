@@ -36,6 +36,7 @@
 
 #include "xmipp_gpu_utils.h"
 #include <reconstruction_cuda/cuda_gpu_correlation.h>
+#include <reconstruction_cuda/gpu.h>
 
 #include <algorithm>
 #include <math.h>
@@ -1372,7 +1373,7 @@ void ProgGpuCorrelation::run()
 {
 
 	//Setting the cuda device to use
-	setDevice(device);
+	GPU::setDevice(device);
 
 	//PROJECTION IMAGES
 	size_t Xdim, Ydim, Zdim, Ndim;
