@@ -25,7 +25,7 @@ from keras import regularizers
 
 
 class EarlyStoppingByLossVal(Callback):
-    def __init__(self, monitor='val_loss', value=0.30, verbose=0):
+    def __init__(self, monitor='val_loss', value=0.01, verbose=0):
         super(Callback, self).__init__()
         self.monitor = monitor
         self.value = value
@@ -312,10 +312,10 @@ if __name__=="__main__":
 
     name_model = os.path.join(fnODir, modelFn+'.h5')
     
-    #callbacks_list = [callbacks.ModelCheckpoint(filepath=name_model, monitor='val_loss', save_best_only=True),
-    #		      EarlyStoppingByLossVal(monitor='val_loss', value=0.30)]
+    callbacks_list = [callbacks.ModelCheckpoint(filepath=name_model, monitor='val_loss', save_best_only=True),
+    		      EarlyStoppingByLossVal(monitor='val_loss', value=0.05)]
 
-    callbacks_list = [callbacks.ModelCheckpoint(filepath=name_model, monitor='val_loss', save_best_only=True)]
+    #callbacks_list = [callbacks.ModelCheckpoint(filepath=name_model, monitor='val_loss', save_best_only=True)]
 
 
     model.summary()
