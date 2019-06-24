@@ -284,6 +284,7 @@ std::vector<Point2D<float>> ShiftCorrEstimator<T>::computeShifts2DOneToN(
 
 template<typename T>
 void ShiftCorrEstimator<T>::check() {
+    AShiftCorrEstimator<T>::check();
     if (this->m_settingsInv->isInPlace()) {
         REPORT_ERROR(ERR_VALUE_INCORRECT, "Only out-of-place transform is supported");
     }

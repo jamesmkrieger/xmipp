@@ -28,22 +28,18 @@
 namespace Alignment {
 
 template<typename T>
-void PolarRotationEstimator<T>::init2D(const HW &hw, AlignType type,
-        const Dimensions &dims, size_t batch, float maxRotDeg) {
-    release();
+void PolarRotationEstimator<T>::init2D(const HW &hw) {
     try {
         m_cpu = &dynamic_cast<const CPU&>(hw);
     } catch (std::bad_cast&) {
         REPORT_ERROR(ERR_ARG_INCORRECT, "Instance of CPU expected");
     }
 
-    ARotationEstimator<T>::init2D(type, dims, batch, maxRotDeg);
     m_firstRing = this->m_dims->x() / 5;
     m_lastRing = this->m_dims->x() / 2;
     if (std::is_same<T, float>()) {
         m_dataAux.resize(this->m_dims->y(), this->m_dims->x());
     }
-
 
     this->m_isInit = true;
 }
@@ -114,6 +110,7 @@ void PolarRotationEstimator<T>::setDefault() {
     m_refPolarFourierI = Polar<std::complex<double>>();
     m_firstRing = -1;
     m_lastRing = -1;
+    ARotationEstimator<T>::setDefault();
 }
 
 template<typename T>

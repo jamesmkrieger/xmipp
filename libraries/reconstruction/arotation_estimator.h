@@ -41,29 +41,36 @@ public:
         setDefault();
     }
 
-    virtual ~ARotationEstimator() {
-        release();
+    void init(const HW &hw, AlignType type,
+       const Dimensions &dims, size_t batch, float maxRotDeg);
+
+    void loadReference(const T *ref);
+
+    void compute(T *others);
+
+    constexpr bool isInitialized() const {
+        return m_isInit;
     }
 
-    virtual void init2D(const HW &hw, AlignType type,
-                   const Dimensions &dims, size_t batch, float maxRotDeg) = 0;
+    constexpr AlignType getAlignType() const {
+        return m_type;
+    }
 
-    virtual void load2DReferenceOneToN(const T *ref) = 0;
-
-    virtual void computeRotation2DOneToN(T *others) = 0;
+    constexpr Dimensions getDimensions() const {
+        return *m_dims;
+    }
 
     inline std::vector<float> getRotations2D() {
         if ( ! m_is_rotation_computed) {
-            REPORT_ERROR(ERR_LOGIC_ERROR, "Rotation has not been yet computed or it has been already retrieved");
+            REPORT_ERROR(ERR_LOGIC_ERROR, "Rotation has not been yet computed");
         }
-        auto cpy = std::vector<float>();
-        cpy.swap(m_rotations2D);
-        m_is_rotation_computed = false;
-        return cpy;
+        return m_rotations2D;
     }
 
     virtual void release();
-
+    virtual ~ARotationEstimator() {
+        release();
+    }
 
 protected:
     // various
@@ -81,9 +88,11 @@ protected:
     bool m_isInit;
 
     virtual void setDefault();
-    virtual void init2D(AlignType type, const Dimensions &dims,
-               size_t batch, float maxRotDeg);
     virtual void check();
+
+    virtual void init2D(const HW &hw) = 0;
+    virtual void load2DReferenceOneToN(const T *ref) = 0;
+    virtual void computeRotation2DOneToN(T *others) = 0;
 };
 
 } /* namespace Alignment */

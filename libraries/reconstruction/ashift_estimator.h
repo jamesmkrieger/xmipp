@@ -50,7 +50,7 @@ public:
 
     virtual void load2DReferenceOneToN(const T *ref) = 0;
 
-    virtual void computeShift2DOneToN(T *others) = 0;
+    virtual void computeShift2DOneToN(T *others) = 0; // FIXME DS it should erase m_shifts2D
 
     inline std::vector<Point2D<float>> getShifts2D() {
         if ( ! m_is_shift_computed) {
@@ -63,6 +63,18 @@ public:
     }
 
     virtual void release();
+
+    constexpr bool isInitialized() const {
+        return m_isInit;
+    }
+
+    constexpr Dimensions getDimensions() const {
+        return *m_dims;
+    }
+
+    constexpr AlignType getAlignType() const {
+        return m_type;
+    }
 
 protected:
     // various

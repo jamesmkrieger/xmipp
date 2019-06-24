@@ -43,13 +43,6 @@ public:
         release();
     }
 
-    void init2D(const HW &hw, AlignType type,
-            const Dimensions &dims, size_t batch, float maxRotDeg) override;
-
-    void load2DReferenceOneToN(const T *ref) override;
-
-    void computeRotation2DOneToN(T *others) override;
-
     void release() override;
 
 private:
@@ -67,7 +60,13 @@ private:
     void check() override;
     void setDefault() override;
 
-    MultidimArray<double> convert(T *data);
+    MultidimArray<double> convert(T *data); // FIXME DS move to multidimarray.h
+
+    void init2D(const HW &hw) override;
+
+    void load2DReferenceOneToN(const T *ref) override;
+
+    void computeRotation2DOneToN(T *others) override;
 };
 
 } /* namespace Alignment */

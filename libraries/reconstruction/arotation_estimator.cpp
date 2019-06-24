@@ -28,9 +28,49 @@
 namespace Alignment {
 
 template<typename T>
+void ARotationEstimator<T>::init(const HW &hw, AlignType type,
+        const Dimensions &dims, size_t batch, float maxRotDeg) {
+    this->release();
+
+    m_type = type;
+    m_dims = new Dimensions(dims);
+    m_batch = std::min(batch, m_dims->n());
+    m_maxRotationDeg = maxRotDeg;
+
+    if (m_dims->is2D()) {
+        this->init2D(hw);
+    } else {
+        REPORT_ERROR(ERR_NOT_IMPLEMENTED, "Not implemented");
+    }
+
+    this->check();
+}
+
+template<typename T>
+void ARotationEstimator<T>::loadReference(const T *ref) {
+    if (m_dims->is2D()) {
+        if (AlignType::OneToN == m_type) {
+            return this->load2DReferenceOneToN(ref);
+        }
+    }
+    REPORT_ERROR(ERR_NOT_IMPLEMENTED, "Not implemented");
+}
+
+template<typename T>
+void ARotationEstimator<T>::compute(T *others) {
+    m_is_rotation_computed = false;
+    if (m_dims->is2D()) {
+        m_rotations2D.clear();
+        if (AlignType::OneToN == m_type) {
+            return this->computeRotation2DOneToN(others);
+        }
+    }
+    REPORT_ERROR(ERR_NOT_IMPLEMENTED, "Not implemented");
+}
+
+template<typename T>
 void ARotationEstimator<T>::release() {
     delete m_dims;
-
     m_rotations2D.clear();
 
     ARotationEstimator<T>::setDefault();
@@ -48,17 +88,6 @@ void ARotationEstimator<T>::setDefault() {
     m_isInit = false;
     m_is_ref_loaded = false;
     m_is_rotation_computed = false;
-}
-
-template<typename T>
-void ARotationEstimator<T>::init2D(AlignType type, const Dimensions &dims,
-               size_t batch, float maxRotDeg) {
-    m_type = type;
-    m_dims = new Dimensions(dims);
-    m_batch = std::min(batch, m_dims->n());
-    m_maxRotationDeg = maxRotDeg;
-
-    check();
 }
 
 template<typename T>
