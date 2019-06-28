@@ -35,7 +35,7 @@ public:
             m_x(x), m_y(y), m_z(z), m_n(n),
             m_pad_x(pad_x), m_pad_y(pad_y), m_pad_z(pad_z) {}
 
-    constexpr Dimensions getSingle() const {
+    constexpr Dimensions createSingle() const {
         return Dimensions(m_x, m_y, m_z, 1, m_pad_x, m_pad_y, m_pad_z);
     }
 

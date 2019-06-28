@@ -46,7 +46,7 @@ void IterativeAlignmentEstimator<T>::print(const AlignmentEstimation &e) {
 }
 
 template<typename T>
-void IterativeAlignmentEstimator<T>::applyTransform(const Dimensions &dims,
+void IterativeAlignmentEstimator<T>::sApplyTransform(const Dimensions &dims,
         const AlignmentEstimation &estimation,
         __restrict const T *orig, __restrict T *copy) {
     static size_t counter = 0;
@@ -97,7 +97,7 @@ void IterativeAlignmentEstimator<T>::compute(unsigned iters, AlignmentEstimation
             rotation2DMatrix(angle, r);
             lhs = r * lhs;
         });
-        applyTransform(m_dims, est, orig, copy);
+        sApplyTransform(m_dims, est, orig, copy);
     };
     auto stepShift = [&] {
         m_shift_est.computeShift2DOneToN(copy);
@@ -106,17 +106,23 @@ void IterativeAlignmentEstimator<T>::compute(unsigned iters, AlignmentEstimation
             MAT_ELEM(lhs, 0, 2) += shift.x;
             MAT_ELEM(lhs, 1, 2) += shift.y;
         });
-        applyTransform(m_dims, est, orig, copy);
+        sApplyTransform(m_dims, est, orig, copy);
     };
     for (unsigned i = 0; i < iters; ++i) {
         if (rotationFirst) {
             stepRotation();
-            stepShift();
+            // if we have object implementing both interfaces, we don't need to run next step
+            if ( ! m_sameEstimators) {
+                stepShift();
+            }
         } else {
             stepShift();
-            stepRotation();
+            // if we have object implementing both interfaces, we don't need to run next step
+            if ( ! m_sameEstimators) {
+                stepRotation();
+            }
         }
-        print(est);
+//        print(est);
     }
     computeCorrelation(est, ref, copy);
 }
@@ -126,7 +132,9 @@ AlignmentEstimation IterativeAlignmentEstimator<T>::compute(
         __restrict const T *ref, __restrict const T *others,
         unsigned iters) {
     m_shift_est.load2DReferenceOneToN(ref);
-    m_rot_est.loadReference(ref);
+    if ( ! m_sameEstimators) {
+        m_rot_est.loadReference(ref);
+    }
 
     // allocate memory for signals with applied pose
     size_t elems = m_dims.sizePadded();

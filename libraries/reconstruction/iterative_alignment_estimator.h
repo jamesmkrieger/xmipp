@@ -42,19 +42,24 @@ public:
             AShiftEstimator<T> &shift_estimator) :
                 m_rot_est(rot_estimator), m_shift_est(shift_estimator),
                 m_dims(shift_estimator.getDimensions()) {
+        m_sameEstimators = ((void*)&m_shift_est == (void*)&m_rot_est);
         this->check();
     }
 
     AlignmentEstimation compute(__restrict const T *ref, __restrict const T *others,
             unsigned iters = 3);
 
-    static void applyTransform(const Dimensions &dims,  // FIXME DS this should not be static, neither public
-            const AlignmentEstimation &estimation,
-            __restrict const T *orig, __restrict T *copy);
+
+protected:
+    static void sApplyTransform(const Dimensions &dims,
+                const AlignmentEstimation &estimation,
+                __restrict const T *orig, __restrict T *copy);
+
 private:
     ARotationEstimator<T> &m_rot_est;
     AShiftEstimator<T> &m_shift_est;
     const Dimensions &m_dims;
+    bool m_sameEstimators;
 
     template<typename U, typename F>
     void updateEstimation(AlignmentEstimation &est,
