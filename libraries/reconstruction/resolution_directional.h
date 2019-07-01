@@ -79,8 +79,7 @@ public:
      * the monogenic amplitud is calculated and low pass filtered at frequency w1*/
     void amplitudeMonogenicSignal3D_fast(const MultidimArray< std::complex<double> > &myfftV,
     		double w1, double w1l, double wH, MultidimArray<double> &amplitude,
-    		int count, int dir, FileName fnDebug,
-    		double rot, double tilt);
+    		int count, int dir, FileName fnDebug);
 
     void defineCone(MultidimArray< std::complex<double> > &myfftV,
     		MultidimArray< std::complex<double> > &conefilter, double rot, double tilt);

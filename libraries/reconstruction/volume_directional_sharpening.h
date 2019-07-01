@@ -67,11 +67,13 @@ public:
     void icosahedronFaces(Matrix2D<int> &faces, Matrix2D<double> &vertex);
 
     void defineIcosahedronFaceMask(Matrix2D<int> &faces, Matrix2D<double> &vertex,
-    		MultidimArray< std::complex<double> > &myfftV);
-    void directionalResolutionStep(Matrix2D<int> &faces, Matrix2D<double> vertex);
+    		MultidimArray< std::complex<double> > &myfftV, double &ang_con);
+    void directionalResolutionStep(int face_number, Matrix2D<int> &faces, Matrix2D<double> &vertex,
+    		MultidimArray< std::complex<double> > &conefilter, MultidimArray<double> &localResolutionMap);
 
-    void definingIcosahedronCone(MultidimArray< std::complex<double> > &myfftV,
-    			MultidimArray< std::complex<double> > &conefilter, double rot, double tilt);
+    void defineIcosahedronCone(int face_number, Matrix2D<int> &faces, Matrix2D<double> &vertex,
+    		MultidimArray< std::complex<double> > &myfftV, MultidimArray< std::complex<double> > &conefilter,
+			double coneAngle);
 
     /* Mogonogenid amplitud of a volume, given an input volume,
      * the monogenic amplitud is calculated and low pass filtered at frequency w1*/
