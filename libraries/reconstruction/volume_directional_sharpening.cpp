@@ -62,7 +62,6 @@ void ProgDirSharpening::defineParams()
         addParamsLine("  [-n <Nthread=1>]: threads number");
 }
 
-
 void ProgDirSharpening::icosahedronVertex(Matrix2D<double> &vertex)
 {
 	std::cout << "Defining Icosahedron vertex..." << std::endl;
@@ -227,6 +226,93 @@ void ProgDirSharpening::icosahedronFaces(Matrix2D<int> &faces, Matrix2D<double> 
 
 }
 
+void ProgDirSharpening::monogenicAmplitude(const MultidimArray< std::complex<double> > &myfftV, MultidimArray<double> &amplitude)
+{
+	fftVRiesz.initZeros(myfftV);
+	fftVRiesz_aux.initZeros(myfftV);
+	std::complex<double> J(0,1);
+
+	//Original volume in real space and preparing Riesz components
+	long n=0;
+	for(size_t k=0; k<ZSIZE(myfftV); ++k)
+	{
+		for(size_t i=0; i<YSIZE(myfftV); ++i)
+		{
+			for(size_t j=0; j<XSIZE(myfftV); ++j)
+			{
+				DIRECT_MULTIDIM_ELEM(fftVRiesz, n) = DIRECT_MULTIDIM_ELEM(myfftV, n);
+				DIRECT_MULTIDIM_ELEM(fftVRiesz_aux, n) = -J;
+				DIRECT_MULTIDIM_ELEM(fftVRiesz_aux, n) *= DIRECT_MULTIDIM_ELEM(fftVRiesz, n);
+				DIRECT_MULTIDIM_ELEM(fftVRiesz_aux, n) *= DIRECT_MULTIDIM_ELEM(iu,n);
+				++n;
+			}
+		}
+	}
+
+	transformer_inv.inverseFourierTransform(fftVRiesz, amplitude);
+
+//	#ifdef DEBUG_DIR
+//		Image<double> filteredvolume;
+//		filteredvolume = VRiesz;
+//		filteredvolume.write(formatString("Volumen_filtrado_%i_%i.vol", dir+1,count));
+//	#endif
+
+	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(amplitude)
+		DIRECT_MULTIDIM_ELEM(amplitude,n) *= DIRECT_MULTIDIM_ELEM(amplitude,n);
+
+
+	// Calculate first component of Riesz vector
+	double ux;
+	n=0;
+	for(size_t k=0; k<ZSIZE(myfftV); ++k)
+	{
+		for(size_t i=0; i<YSIZE(myfftV); ++i)
+		{
+			for(size_t j=0; j<XSIZE(myfftV); ++j)
+			{
+				ux = VEC_ELEM(freq_fourier_x,j);
+				DIRECT_MULTIDIM_ELEM(fftVRiesz, n) = ux*DIRECT_MULTIDIM_ELEM(fftVRiesz_aux, n);
+				++n;
+			}
+		}
+	}
+
+	transformer_inv.inverseFourierTransform(fftVRiesz, VRiesz);
+
+	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(amplitude)
+		DIRECT_MULTIDIM_ELEM(amplitude,n)+=DIRECT_MULTIDIM_ELEM(VRiesz,n)*DIRECT_MULTIDIM_ELEM(VRiesz,n);
+
+	// Calculate second and third component of Riesz vector
+	n=0;
+	double uy, uz;
+	for(size_t k=0; k<ZSIZE(myfftV); ++k)
+	{
+		uz = VEC_ELEM(freq_fourier_z,k);
+		for(size_t i=0; i<YSIZE(myfftV); ++i)
+		{
+			uy = VEC_ELEM(freq_fourier_y,i);
+			for(size_t j=0; j<XSIZE(myfftV); ++j)
+			{
+				DIRECT_MULTIDIM_ELEM(fftVRiesz, n) = uz*DIRECT_MULTIDIM_ELEM(fftVRiesz_aux, n);
+				DIRECT_MULTIDIM_ELEM(fftVRiesz_aux, n) = uy*DIRECT_MULTIDIM_ELEM(fftVRiesz_aux, n);
+				++n;
+			}
+		}
+	}
+
+	transformer_inv.inverseFourierTransform(fftVRiesz, VRiesz);
+
+	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(amplitude)
+		DIRECT_MULTIDIM_ELEM(amplitude,n) += DIRECT_MULTIDIM_ELEM(VRiesz,n)*DIRECT_MULTIDIM_ELEM(VRiesz,n);
+
+	transformer_inv.inverseFourierTransform(fftVRiesz_aux, VRiesz);
+
+	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(amplitude)
+		DIRECT_MULTIDIM_ELEM(amplitude,n) += DIRECT_MULTIDIM_ELEM(VRiesz,n)*DIRECT_MULTIDIM_ELEM(VRiesz,n);
+		DIRECT_MULTIDIM_ELEM(amplitude,n)=sqrt(DIRECT_MULTIDIM_ELEM(amplitude,n));
+}
+
+
 void ProgDirSharpening::defineIcosahedronCone(int face_number, Matrix2D<int> &faces, Matrix2D<double> &vertex,
 		MultidimArray< std::complex<double> > &myfftV, MultidimArray< std::complex<double> > &conefilter, double coneAngle)
 {
@@ -370,7 +456,7 @@ void ProgDirSharpening::produceSideInfo()
     		if (i*i+j*j+k*k > (R-N_smoothing)*(R-N_smoothing))
     			A3D_ELEM(pMask, k, i, j) = -1;
     	}
-    	int Rparticle = round(sqrt(radius));
+    	Rparticle = round(sqrt(radius));
     	std::cout << "particle radius = " << Rparticle << std::endl;
     	size_t xrows = angles.mdimx;
 
@@ -418,32 +504,78 @@ void ProgDirSharpening::produceSideInfo()
 		}
 }
 
-void ProgDirSharpening::directionalResolutionStep(int face_number, Matrix2D<int> &faces, Matrix2D<double> &vertex, MultidimArray< std::complex<double> > &conefilter, MultidimArray<double> &localResolutionMap)
+
+double ProgDirSharpening::averageInMultidimArray(MultidimArray<double> &amplitude, MultidimArray<int> &mask)
+{
+	double sumS=0, sumS2=0, sumN=0, sumN2=0, NN = 0, NS = 0;
+	MultidimArray<int> &pMask = mask();
+	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(amplitude)
+	{
+		double amplitudeValue=DIRECT_MULTIDIM_ELEM(amplitude, n);
+		if (DIRECT_MULTIDIM_ELEM(pMask, n)==0)
+		{
+			sumN  += amplitudeValue;
+			sumN2 += amplitudeValue*amplitudeValue;
+			++NN;
+		}
+	}
+
+	double mean_noise = sumN/NN;
+	return mean_noise;
+}
+
+
+
+void ProgDirSharpening::directionalResolutionStep(int face_number, Matrix2D<int> &faces, Matrix2D<double> &vertex,
+		MultidimArray< std::complex<double> > &conefilter, MultidimArray<int> &mask, MultidimArray<double> &localResolutionMap,
+		double &cone_angle)
 {
 	std::cout << "Analyzing directions " << std::endl;
+
+	//Setting parameters
+	double cut_value = 0.025; //percentage of voxels to stop the frequency analysis
 
 	maskMatrix.initConstant(1, NVoxelsOriginalMask, 1);
 
 	bool continueIter, breakIter;
 	bool doNextIteration=true;
-	double freq, freqL, freqH, counter, resolution_2, step, resolution;
+	double freq, freqL, freqH, counter, resolution_2, step, resolution, w, wH;
 	double last_resolution = 0;
+	double x_dir, y_dir, z_dir;
 	step = res_step;
-	int fourier_idx, last_fourier_idx = -1, iter = 0, fourier_idx_2;
+	int fourier_idx, last_fourier_idx = -1, iter = 0, fourier_idx_2, v1, v2, v3;
 	std::vector<double> list;
 
 	FileName fnDebug = "Signal";
 
 	MultidimArray<double> amplitudeMS;
+	MultidimArray<int> mask_aux = mask();
+	MultidimArray<int> &pMask = mask_aux;
 	std::vector<float> noiseValues;
 
 	ProgResDir resolutionSweep;
+
+	int aux_idx, volsize;
+
+	volsize = XSIZE(mask);
+
+	DIGFREQ2FFT_IDX(sampling/18.0, volsize, aux_idx);
+
+	FFT_IDX2DIGFREQ(aux_idx, volsize, w);
+	FFT_IDX2DIGFREQ(aux_idx+1, volsize, wH); //Frequency chosen for a first estimation
+
+	fourier_idx = aux_idx;
+
+	//Calculating the average of amplitudes
+	monogenicAmplitude(fftV, amplitudeMS);
+	double AvgNoise;
+	double max_meanS = -1e38;
+	AvgNoise = averageInMultidimArray(amplitudeMS, pMask);
 
 	do
 	{
 		continueIter = false;
 		breakIter = false;
-		//std::cout << "--------------Frequency--------------" << std::endl;
 
 		resolutionSweep.resolution2eval_(fourier_idx, step,
 						resolution, last_resolution, last_fourier_idx,
@@ -465,19 +597,17 @@ void ProgDirSharpening::directionalResolutionStep(int face_number, Matrix2D<int>
 
 		fnDebug = "Signal";
 
-		resolutionSweep.amplitudeMonogenicSignal3D_fast(conefilter, freq, freqH, freqL, amplitudeMS, iter, face_number, fnDebug, rot, tilt);
+		resolutionSweep.amplitudeMonogenicSignal3D_fast(conefilter, freq, freqH, freqL, amplitudeMS, iter, face_number, fnDebug);
 
 		double sumS=0, sumS2=0, sumN=0, sumN2=0, NN = 0, NS = 0;
 		noiseValues.clear();
 
-
-		double x_dir = sin(tilt*PI/180)*cos(rot*PI/180);
-		double y_dir = sin(tilt*PI/180)*sin(rot*PI/180);
-		double z_dir = cos(tilt*PI/180);
+		faceCenter(face_number, faces, vertex, x_dir, y_dir, z_dir);
 
 		double uz, uy, ux;
 
 		int n=0;
+
 		int z_size = ZSIZE(amplitudeMS);
 		int x_size = XSIZE(amplitudeMS);
 		int y_size = YSIZE(amplitudeMS);
@@ -551,7 +681,6 @@ void ProgDirSharpening::directionalResolutionStep(int face_number, Matrix2D<int>
 		{
 			std::cout << "Search of resolutions stopped due to mask has been completed" << std::endl;
 			doNextIteration =false;
-			Nvoxels = 0;
 
 			#ifdef DEBUG_MASK
 			mask.write("partial_mask.vol");
@@ -607,7 +736,7 @@ void ProgDirSharpening::directionalResolutionStep(int face_number, Matrix2D<int>
 						{
 							if (DIRECT_MULTIDIM_ELEM(amplitudeMS, n)>thresholdNoise)
 							{
-								MAT_ELEM(resolutionMatrix, dir, maskPos) = resolution;
+								MAT_ELEM(resolutionMatrix, face_number, maskPos) = resolution;
 								MAT_ELEM(maskMatrix, 0, maskPos) = 1;
 							}
 							else
@@ -616,7 +745,7 @@ void ProgDirSharpening::directionalResolutionStep(int face_number, Matrix2D<int>
 								if (MAT_ELEM(maskMatrix, 0, maskPos) >2)
 								{
 									MAT_ELEM(maskMatrix, 0, maskPos) = 0;
-									MAT_ELEM(resolutionMatrix, dir, maskPos) = resolution_2;
+									MAT_ELEM(resolutionMatrix, face_number, maskPos) = resolution_2;
 								}
 							}
 						}
@@ -661,14 +790,35 @@ void ProgDirSharpening::run()
 
 		defineIcosahedronCone(face_number, faces, vertex, fftV, conefilter, coneAngle);
 
-		directionalResolutionStep(face_number, faces, vertex, conefilter, localResolutionMap);
+		directionalResolutionStep(face_number, faces, vertex, conefilter, mask(), localResolutionMap, coneAngle);
 	}
 
-
-
-
+	//localdeblurStep(zzz);
 }
 
+void ProgDirSharpening::faceCenter(int face_number, Matrix2D<int> &faces, Matrix2D<double> &vertex,
+		double &xCenter, double &yCenter, double &zCenter)
+{
+	int v1, v2, v3;
+
+	v1 = MAT_ELEM(faces,face_number, 0); v2 = MAT_ELEM(faces,face_number, 1); v3 = MAT_ELEM(faces,face_number, 2);
+
+	double x1, x2, x3, y1, y2, y3, z1, z2, z3;
+
+	x1 = MAT_ELEM(vertex,v1, 0); y1 = MAT_ELEM(vertex,v1, 1); z1 = MAT_ELEM(vertex,v1, 2);
+	x2 = MAT_ELEM(vertex,v2, 0); y2 = MAT_ELEM(vertex,v2, 1); z2 = MAT_ELEM(vertex,v2, 2);
+	x3 = MAT_ELEM(vertex,v3, 0); y3 = MAT_ELEM(vertex,v3, 1); z3 = MAT_ELEM(vertex,v3, 2);
+
+	double x_face = x1 + x2 + x3;
+	double y_face = y1 + y2 + y3;
+	double z_face = z1 + z2 + z3;
+
+	double normface = sqrt(x_face*x_face + y_face*y_face + z_face*z_face);
+
+	xCenter /= normface;
+	yCenter /= normface;
+	zCenter /= normface;
+}
 
 void ProgDirSharpening::defineIcosahedronFaceMask(Matrix2D<int> &faces, Matrix2D<double> &vertex,
 		MultidimArray< std::complex<double> > &myfftV, double &ang_con)
@@ -683,20 +833,12 @@ void ProgDirSharpening::defineIcosahedronFaceMask(Matrix2D<int> &faces, Matrix2D
 
 		if (v1 != -1)
 		{
-			v2 = MAT_ELEM(faces,f, 1); v3 = MAT_ELEM(faces,f, 2);
 			x1 = MAT_ELEM(vertex,v1, 0); y1 = MAT_ELEM(vertex,v1, 1); z1 = MAT_ELEM(vertex,v1, 2);
-			x2 = MAT_ELEM(vertex,v2, 0); y2 = MAT_ELEM(vertex,v2, 1); z2 = MAT_ELEM(vertex,v2, 2);
-			x3 = MAT_ELEM(vertex,v3, 0); y3 = MAT_ELEM(vertex,v3, 1); z3 = MAT_ELEM(vertex,v3, 2);
 
-			x_face = x1 + x2 + x3;
-			y_face = y1 + y2 + y3;
-			z_face = z1 + z2 + z3;
-			normface = sqrt(x_face*x_face + y_face*y_face + z_face*z_face);
-			x_face /= normface;
-			y_face /= normface;
-			z_face /= normface;
+			double xCenter, yCenter, zCenter;
+			faceCenter(f, faces, vertex, xCenter, yCenter, zCenter);
 
-			ang_con = acos(x_face*x1 + y_face*y1 + z_face*z1 );
+			ang_con = acos( x_face*x1 + y_face*y1 + z_face*z1 );
 
 			std::cout << "x1 = " << x1 << "   y1 = " << y1 << "   z1 = " << z1 << std::endl;
 			std::cout << "X1 = " << x_face << "   Y1 = " << y_face << "   Z1 = " << z_face << std::endl;
@@ -791,6 +933,213 @@ void ProgDirSharpening::defineIcosahedronFaceMask(Matrix2D<int> &faces, Matrix2D
 //		FileName fnmasked;
 //		fnmasked = formatString("maskedIcosaHedron_%i.mrc",f);
 //		icosahedronMasked.write(fnmasked);
+	}
+
+}
+
+void ProgDirSharpening::localDirectionalfiltering(Matrix2D<int> &faces, MultidimArray< std::complex<double> > &myfftV,
+	                                       MultidimArray<double> &localfilteredVol,
+	                                       double &minRes, double &maxRes, double &step)
+	{
+
+	for (size_t face_number = 0; face_number<MAT_YSIZE(faces); ++face_number)
+	{
+		//Repeated faces are skipped
+		if (MAT_ELEM(faces, face_number, 0) < 0)
+			continue;
+
+
+
+		MultidimArray<double> filteredVol, lastweight, weight;
+		localfilteredVol.initZeros(Vorig);
+		weight.initZeros(Vorig);
+		lastweight.initZeros(Vorig);
+
+		double freq, lastResolution=1e38;
+		int idx, lastidx = -1;
+
+		for (double res = minRes; res<maxRes; res+=step)
+		{
+			freq = sampling/res;
+
+			DIGFREQ2FFT_IDX(freq, ZSIZE(myfftV), idx);
+
+			if (idx == lastidx)
+				continue;
+
+			double wL = sampling/(res - step);
+
+			bandPassFilterFunction(myfftV, freq, wL, filteredVol, idx);
+
+			FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(filteredVol)
+			{
+			   if (DIRECT_MULTIDIM_ELEM(resVol, n) < 2*sampling)
+				{
+				   DIRECT_MULTIDIM_ELEM(filteredVol, n)=0;
+				}
+			   else
+				{
+				   double res_map = DIRECT_MULTIDIM_ELEM(resVol, n);//+1e-38;
+				   DIRECT_MULTIDIM_ELEM(weight, n) = (exp(-K*(res-res_map)*(res-res_map)));
+				   DIRECT_MULTIDIM_ELEM(filteredVol, n) *= DIRECT_MULTIDIM_ELEM(weight, n);
+				}
+			}
+
+			localfilteredVol += filteredVol;
+			lastweight += weight;
+			lastResolution = res;
+			lastidx = idx;
+		}
+//		double sigmaBefore=0;
+//        computeAvgStdev_within_binary_mask(resVol, localfilteredVol, sigmaBefore);
+
+		FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(localfilteredVol)
+			if (DIRECT_MULTIDIM_ELEM(lastweight, n)>0)
+				DIRECT_MULTIDIM_ELEM(localfilteredVol, n) /=DIRECT_MULTIDIM_ELEM(lastweight, n);
+
+		//		double sigmaAfter=0;
+//        computeAvgStdev_within_binary_mask(resVol, localfilteredVol, sigmaAfter);
+//        std::cout << "sigmaBefore div=" << sigmaBefore << " sigmaAfter div=" << sigmaAfter << std::endl;
+//        FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(localfilteredVol)
+//        {
+//        	if (DIRECT_MULTIDIM_ELEM(lastweight, n)>0)
+//                DIRECT_MULTIDIM_ELEM(localfilteredVol, n) *=0.01*sigmaBefore/sigmaAfter;
+//        }
+	}
+}
+
+void ProgDirSharpening::localdeblurStep(Matrix2D<int> &faces,
+		MultidimArray< std::complex<double> >  &fftV, MultidimArray<double> &localResolutionMap)
+{
+	for (size_t f = 0; f<MAT_YSIZE(faces); ++f)
+	{
+
+		MultidimArray<double> auxVol;
+		MultidimArray<double> operatedfiltered, Vk, filteredVol;
+		double lastnorm=0, lastporc=1;
+		double freq;
+		double step = 0.2;
+		int idx, bool1=1, bool2=1;
+		int lastidx = -1;
+
+		minRes = 2*sampling;
+		maxRes=maxRes+2;
+
+		//std::cout << "Resolutions between " << minRes << " and " << maxRes << std::endl;
+
+		filteredVol = Vorig;
+
+		sharpenedMap.resizeNoCopy(Vorig);
+		double normOrig=0;
+
+		MetaData mditer;
+		size_t objId;
+		objId = mditer.addObject();
+
+		for (size_t i = 1; i<=Niter; ++i)
+		{
+			//std::cout << "----------------Iteration " << i << "----------------" << std::endl;
+			mditer.setValue(MDL_ITER, (int) i, objId);
+			auxVol = filteredVol;
+			transformer.FourierTransform(auxVol, fftV);
+
+			localDirectionalfiltering(fftV, operatedfiltered, minRes, maxRes, step);
+
+			filteredVol = Vorig;
+
+			filteredVol -= operatedfiltered;
+
+			//calculate norm for Vorig
+			if (i==1)
+			{
+				FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(Vorig)
+				{
+					   normOrig +=(DIRECT_MULTIDIM_ELEM(Vorig,n)*DIRECT_MULTIDIM_ELEM(Vorig,n));
+				}
+				normOrig = sqrt(normOrig);
+				//std::cout << "norma del original  " << normOrig << std::endl;
+			}
+
+
+			//calculate norm for operatedfiltered
+			double norm=0;
+			FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(operatedfiltered)
+			{
+					norm +=(DIRECT_MULTIDIM_ELEM(operatedfiltered,n)*DIRECT_MULTIDIM_ELEM(operatedfiltered,n));
+			}
+			norm=sqrt(norm);
+
+
+			double porc=lastnorm*100/norm;
+			//std::cout << "norm " << norm << " percetage " << porc << std::endl;
+
+			double subst=porc-lastporc;
+
+			if ((subst<1)&&(bool1==1)&&(i>2))
+			{
+				bool1=2;
+				//std::cout << "-----iteration completed-----" << std::endl;
+
+			}
+
+			lastnorm=norm;
+			lastporc=porc;
+
+			if (i==1 && lambda==1)
+			{
+				lambda=(normOrig/norm)/12;
+				std::cout << "  lambda  " << lambda << std::endl;
+			}
+
+			////Second operator
+			transformer.FourierTransform(filteredVol, fftV);
+			localfiltering(fftV, filteredVol, minRes, maxRes, step);
+
+			if (i == 1)
+					Vk = Vorig;
+			else
+					Vk = sharpenedMap;
+
+			//sharpenedMap=Vk+lambda*(filteredVol);
+			FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(sharpenedMap)
+			{
+				DIRECT_MULTIDIM_ELEM(sharpenedMap,n)=DIRECT_MULTIDIM_ELEM(Vk,n)+
+									 lambda*DIRECT_MULTIDIM_ELEM(filteredVol,n);
+									 //-0.01*DIRECT_MULTIDIM_ELEM(Vk,n)*SGN(DIRECT_MULTIDIM_ELEM(Vk,n));
+				if (DIRECT_MULTIDIM_ELEM(sharpenedMap,n)<-4*desvOutside_Vorig)
+					DIRECT_MULTIDIM_ELEM(sharpenedMap,n)=-4*desvOutside_Vorig;
+			}
+
+//        		double desv_sharp=0;
+//                computeAvgStdev_within_binary_mask(resVol, sharpenedMap, desv_sharp);
+//                std::cout << "desv_sharp = " << desv_sharp << std::endl;
+
+			filteredVol = sharpenedMap;
+
+			if (bool1==2)
+			{
+				Image<double> filteredvolume;
+				filteredvolume() = sharpenedMap;
+				filteredvolume.write(fnOut);
+				break;
+			}
+		}
+
+		mditer.setValue(MDL_COST, lambda, objId);
+		mditer.write(fnMD);
+
+		Image<double> filteredvolume;
+		filteredvolume() = sharpenedMap;
+		filteredvolume.write(fnOut);
+
+
+
+
+
+
+
+
+
 	}
 
 }

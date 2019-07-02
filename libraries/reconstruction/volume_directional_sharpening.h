@@ -66,10 +66,22 @@ public:
     void icosahedronVertex(Matrix2D<double> &angles);
     void icosahedronFaces(Matrix2D<int> &faces, Matrix2D<double> &vertex);
 
+    void monogenicAmplitude(const MultidimArray< std::complex<double> > &myfftV, MultidimArray<double> &amplitude);
+
     void defineIcosahedronFaceMask(Matrix2D<int> &faces, Matrix2D<double> &vertex,
     		MultidimArray< std::complex<double> > &myfftV, double &ang_con);
+
+    void localdeblurStep(Matrix2D<int> &faces,
+    		MultidimArray< std::complex<double> >  &fftV, MultidimArray<double> &localResolutionMap);
+
+    void faceCenter(int face_number, Matrix2D<int> &faces, Matrix2D<double> &vertex,
+    		double &xCenter, double &yCenter, double &zCenter);
+
+    double averageInMultidimArray(MultidimArray<double> &amplitude, MultidimArray<int> &mask);
+
     void directionalResolutionStep(int face_number, Matrix2D<int> &faces, Matrix2D<double> &vertex,
-    		MultidimArray< std::complex<double> > &conefilter, MultidimArray<double> &localResolutionMap);
+    		MultidimArray< std::complex<double> > &conefilter, MultidimArray<int> &mask, MultidimArray<double> &localResolutionMap,
+    		double &cone_angle);
 
     void defineIcosahedronCone(int face_number, Matrix2D<int> &faces, Matrix2D<double> &vertex,
     		MultidimArray< std::complex<double> > &myfftV, MultidimArray< std::complex<double> > &conefilter,
@@ -82,6 +94,7 @@ public:
 
     void bandPassFilterFunction(const MultidimArray< std::complex<double> > &myfftV,
     		double w, double wL, MultidimArray<double> &filteredVol, int count);
+
     void wideBandPassFilter(const MultidimArray< std::complex<double> > &myfftV,
                     double wmin, double wmax, double wL, MultidimArray<double> &filteredVol);
 
@@ -91,9 +104,9 @@ public:
       void computeAvgStdev_within_binary_mask(const MultidimArray< double >&resVol,
       										const MultidimArray< double >&vol, double &stddev, bool outside=false );
 
-    void localfiltering(MultidimArray< std::complex<double> > &myfftV,
-    										MultidimArray<double> &localfilteredVol,
-    										double &minFreq, double &maxFreq, double &step);
+    void localDirectionalfiltering(Matrix2D<int> &faces, MultidimArray< std::complex<double> > &myfftV,
+            MultidimArray<double> &localfilteredVol,
+            double &minRes, double &maxRes, double &step);
 
     void amplitudeMonogenicSignalBP(MultidimArray< std::complex<double> > &myfftV,
     		double w1, double w1l, MultidimArray<double> &amplitude, int count);
@@ -114,7 +127,7 @@ public:
     MultidimArray< std::complex<double> > fftVRiesz, fftVRiesz_aux;
    	Matrix2D<double> angles, resolutionMatrix, maskMatrix, trigProducts;
 	Matrix1D<double> freq_fourier_x, freq_fourier_y, freq_fourier_z;
-	int N_smoothing;
+	int N_smoothing, Rparticle;
 	long NVoxelsOriginalMask;
 };
 //@}
