@@ -32,7 +32,7 @@ public:
         // smaller
         size_t size = ((int)dist1(mt) / 2) * 2;
         test(Dimensions(size, size, 1, n), batch);
-        // biggerexi
+        // bigger
         size = ((int)dist2(mt) / 2) * 2;
         test(Dimensions(size, size, 1, n), batch);
     }
@@ -58,12 +58,14 @@ public:
         }
 //        outputData(others, dims);
 
+        // prepare aligner
         auto cpu = CPU();
         auto shiftAligner = ShiftCorrEstimator<T>();
         auto rotationAligner = PolarRotationEstimator<T>();
         shiftAligner.init2D(cpu, AlignType::OneToN, FFTSettingsNew<T>(dims, batch), maxShift, true, true);
         rotationAligner.init(cpu, AlignType::OneToN, dims, 1, maxRotation); // FIXME DS add test that batch is 1
         auto aligner = IterativeAlignmentEstimator<T>(rotationAligner, shiftAligner);
+
         auto result  = aligner.compute(ref, others);
 
         for (size_t i = 0; i < dims.n(); ++i) {
@@ -72,9 +74,16 @@ public:
             auto m = result.poses.at(i);
             auto sA = Point2D<float>(-MAT_ELEM(m, 0, 2), -MAT_ELEM(m, 1, 2));
             auto rA = fmod(360 + RAD2DEG(atan2(MAT_ELEM(m, 1, 0), MAT_ELEM(m, 0, 0))), 360);
-            printf("exp: | %f | %f | %f | act: | %f | %f | %f\n", //, err: [%f, %f] %f, rel [%f, %f] %f\n",
+
+            size_t offset = i * dims.xyzPadded();
+            auto M = getReferenceTransform(ref, others + offset, dims);
+            auto sR = Point2D<float>(-MAT_ELEM(M, 0, 2), -MAT_ELEM(M, 1, 2));
+            auto rR = fmod(360 + RAD2DEG(atan2(MAT_ELEM(M, 1, 0), MAT_ELEM(M, 0, 0))), 360);
+
+            printf("exp: | %f | %f | %f | act: | %f | %f | %f | ref: | %f | %f | %f\n", //, err: [%f, %f] %f, rel [%f, %f] %f\n",
                     sE.x, sE.y, rE,
-                    sA.x, sA.y, rA//,
+                    sA.x, sA.y, rA,
+                    sR.x, sR.y, rR//,
 //                    std::abs(sA.x - sE.x), std::abs(sA.y - sE.y), std::abs(rA - rE),
 //                    (sA.x / sE.x - 1) * 100, (sA.y / sE.y - 1) * 100, (rA / rE - 1) * 100
             );
@@ -93,6 +102,30 @@ private:
         Image<T> img(wrapper);
         img.write("data.stk");
     }
+
+    Matrix2D<double> getReferenceTransform(T *ref, T *other, const Dimensions &dims) {
+        Matrix2D<double> M;
+        auto I = convert(other, dims);
+        I.setXmippOrigin();
+        auto refWrapper = convert(ref, dims);
+        refWrapper.setXmippOrigin();
+
+        alignImages(refWrapper, I, M, DONT_WRAP);
+        return M;
+    }
+
+    MultidimArray<double> convert(float *data, const Dimensions &dims) {
+        auto wrapper = MultidimArray<double>(1, 1, dims.y(), dims.x());
+        for (size_t i = 0; i < dims.xyz(); ++i) {
+            wrapper.data[i] = data[i];
+        }
+        return wrapper;
+    }
+
+    MultidimArray<double> convert(double *data, const Dimensions &dims) {
+        return MultidimArray<double>(1, 1, dims.y(), dims.x(), data);
+    }
+
 };
 TYPED_TEST_CASE_P(IterativeAlignmentEstimator_Test);
 
