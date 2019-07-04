@@ -75,18 +75,19 @@ public:
             auto sA = Point2D<float>(-MAT_ELEM(m, 0, 2), -MAT_ELEM(m, 1, 2));
             auto rA = fmod(360 + RAD2DEG(atan2(MAT_ELEM(m, 1, 0), MAT_ELEM(m, 0, 0))), 360);
 
-            size_t offset = i * dims.xyzPadded();
-            auto M = getReferenceTransform(ref, others + offset, dims);
-            auto sR = Point2D<float>(-MAT_ELEM(M, 0, 2), -MAT_ELEM(M, 1, 2));
-            auto rR = fmod(360 + RAD2DEG(atan2(MAT_ELEM(M, 1, 0), MAT_ELEM(M, 0, 0))), 360);
+//            printf("exp: | %f | %f | %f | act: | %f | %f | %f ",
+//                    sE.x, sE.y, rE,
+//                    sA.x, sA.y, rA
+//            );
 
-            printf("exp: | %f | %f | %f | act: | %f | %f | %f | ref: | %f | %f | %f\n", //, err: [%f, %f] %f, rel [%f, %f] %f\n",
-                    sE.x, sE.y, rE,
-                    sA.x, sA.y, rA,
-                    sR.x, sR.y, rR//,
-//                    std::abs(sA.x - sE.x), std::abs(sA.y - sE.y), std::abs(rA - rE),
-//                    (sA.x / sE.x - 1) * 100, (sA.y / sE.y - 1) * 100, (rA / rE - 1) * 100
-            );
+//            size_t offset = i * dims.xyzPadded();
+//            auto M = getReferenceTransform(ref, others + offset, dims);
+//            auto sR = Point2D<float>(-MAT_ELEM(M, 0, 2), -MAT_ELEM(M, 1, 2));
+//            auto rR = fmod(360 + RAD2DEG(atan2(MAT_ELEM(M, 1, 0), MAT_ELEM(M, 0, 0))), 360);
+//            printf("| ref: | %f | %f | %f\n",
+//                    sR.x, sR.y, rR);
+
+//            printf("\n");
         }
 
         delete[] ref;

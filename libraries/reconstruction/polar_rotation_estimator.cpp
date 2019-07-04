@@ -57,7 +57,8 @@ void PolarRotationEstimator<T>::load2DReferenceOneToN(const T *ref) {
 
 template<>
 MultidimArray<double> PolarRotationEstimator<float>::convert(float *data) {
-    for (size_t i = 0; i < this->m_dims->xyz(); ++i) {
+    const size_t s = this->m_dims->xyz();
+    for (size_t i = 0; i < s; ++i) {
         m_dataAux.data[i] = data[i];
     }
     return m_dataAux;
