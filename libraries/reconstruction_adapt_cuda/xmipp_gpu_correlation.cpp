@@ -36,7 +36,6 @@
 
 #include "xmipp_gpu_utils.h"
 #include <reconstruction_cuda/cuda_gpu_correlation.h>
-#include <reconstruction_cuda/gpu.h>
 
 #include <algorithm>
 #include <math.h>
@@ -526,7 +525,8 @@ void ProgGpuCorrelation::readParams()
    	fnDir = getParam("--odir");
    	maxShift = getIntParam("--maxShift");
    	sizePad = getIntParam("--sizePad");
-   	device = getIntParam("--device");
+   	int device = getIntParam("--device");
+   	gpu = GPU(device);
 
 }
 
@@ -554,7 +554,7 @@ void ProgGpuCorrelation::defineParams()
 	addParamsLine("   [--odir <outputDir=\".\">]           : Output directory to save the aligned images");
     addParamsLine("   [--maxShift <s=10>]                  : Maximum shift allowed (+-this amount)");
     addParamsLine("   [--simplifiedMd <b=false>]           : To generate a simplified metadata with only the maximum weight image stores");
-    addParamsLine("   [--sizePad <pad=100>]    ");
+    addParamsLine("   [--sizePad <pad=100>]                ");
     addParamsLine("   [--device <dev=0>]                   : GPU device to use. 0th by default");
     addUsageLine("Computes the correlation between a set of experimental images with respect "
     		     "to a set of reference images with CUDA in GPU");
@@ -1373,7 +1373,7 @@ void ProgGpuCorrelation::run()
 {
 
 	//Setting the cuda device to use
-	GPU::setDevice(device);
+	gpu.set();
 
 	//PROJECTION IMAGES
 	size_t Xdim, Ydim, Zdim, Ndim;
