@@ -119,7 +119,6 @@ public:
 public:
     MultidimArray<double> Vorig;//, VsoftMask;
     Image<int> mask;
-    MultidimArray<double> resVol;
     MultidimArray<double> iu, VRiesz, sharpenedMap; // Inverse of the frequency
 	MultidimArray< std::complex<double> > fftV, fftVfilter, conefilter; // Fourier transform of the input volume
 	FourierTransformer transformer, transformer_inv;
