@@ -1,10 +1,6 @@
 #!/usr/bin/env python2
 
-from keras.callbacks import TensorBoard, ModelCheckpoint
-from keras.models import Model
-from keras.layers import Input, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Flatten, Dense
-from keras.optimizers import Adam
-import tensorflow as tf
+
 import cv2
 import math
 import numpy as np
@@ -14,7 +10,6 @@ import string
 import sys
 import xmippLib
 import time
-from keras.models import load_model
 from shutil import copy
 import pyworkflow.em.metadata as md
 
@@ -54,7 +49,19 @@ if __name__=="__main__":
     Xdim = int(sys.argv[3])
     numClassif = int(sys.argv[4])
     numMax=int(sys.argv[5])
+    gpuId = sys.argv[6]
 
+    #if not gpuId.startswith('-1'):
+    #    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+    #    os.environ["CUDA_VISIBLE_DEVICES"] = gpuId
+
+    from keras.callbacks import TensorBoard, ModelCheckpoint
+    from keras.models import Model
+    from keras.layers import Input, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Flatten, Dense
+    from keras.optimizers import Adam
+    from keras.models import load_model
+    import tensorflow as tf
+    
     print('Predict mode')
     newImage = xmippLib.Image()
     #copy(fnExp, fnOName)
