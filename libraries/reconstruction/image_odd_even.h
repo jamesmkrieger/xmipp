@@ -1,6 +1,7 @@
 /***************************************************************************
  *
- * Authors:    David Strelak (davidstrelak@gmail.com)
+ * Authors:    Jose Luis Vilas, 					  jlvilas@cnb.csic.es
+ * 			   Carlos Oscar S. Sorzano            coss@cnb.csic.es (2019)
  *
  * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
  *
@@ -23,12 +24,36 @@
  *  e-mail address 'xmipp@cnb.csic.es'
  ***************************************************************************/
 
-#ifndef CUDA_ASSERTS_H_
-#define CUDA_ASSERTS_H_
+#ifndef _PROG_SPLIT_ODD_EVEN
+#define _PROG_SPLIT_ODD_EVEN
 
-#include "cuFFTAdvisor/cudaAsserts.h"
+#include <iostream>
+#include <core/xmipp_program.h>
+#include <core/xmipp_image.h>
+#include <core/metadata.h>
+#include <string>
+#include "core/metadata_extension.h"
 
-#define gpuErrchk(code) { cuFFTAdvisor::gpuErrchk((code), __FILE__, __LINE__); }
-#define gpuErrchkFFT(code) { cuFFTAdvisor::gpuErrchkFFT((code), __FILE__, __LINE__); }
+/**@defgroup Odd Even
+   @ingroup ReconsLibrary */
+//@{
+/** SSNR parameters. */
 
-#endif /* CUDA_ASSERTS_H_ */
+class ProgOddEven : public XmippProgram
+{
+public:
+	 /** Filenames */
+	FileName fnOut_odd, fnOut_even, fnImg, splitType;
+	bool sumFrames;
+
+public:
+    void defineParams();
+    void readParams();
+    void produceSideInfo();
+    void run();
+
+
+};
+//@}
+#endif
+

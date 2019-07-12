@@ -1,6 +1,6 @@
 /***************************************************************************
+ * Authors:     Jose Luis Vilas (jlvilas@cnb.csic.es)
  *
- * Authors:    David Strelak (davidstrelak@gmail.com)
  *
  * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
  *
@@ -23,12 +23,11 @@
  *  e-mail address 'xmipp@cnb.csic.es'
  ***************************************************************************/
 
-#ifndef CUDA_ASSERTS_H_
-#define CUDA_ASSERTS_H_
+#include <reconstruction/image_odd_even.h>
 
-#include "cuFFTAdvisor/cudaAsserts.h"
-
-#define gpuErrchk(code) { cuFFTAdvisor::gpuErrchk((code), __FILE__, __LINE__); }
-#define gpuErrchkFFT(code) { cuFFTAdvisor::gpuErrchkFFT((code), __FILE__, __LINE__); }
-
-#endif /* CUDA_ASSERTS_H_ */
+int main(int argc, char **argv)
+{
+	ProgOddEven program;
+    program.read(argc, argv);
+    return program.tryRun();
+}
