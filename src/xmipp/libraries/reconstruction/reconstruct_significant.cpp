@@ -177,6 +177,10 @@ void ProgReconstructSignificant::alignImagesToGallery()
 
 	MultidimArray<double> ccVol(Nvols);
 	MDRow row;
+	static int counter = 0;
+	int maxIters =10000;
+	printf("reconstruct_significant, %d images, orig code, resolution %d %d\n",
+	       maxIters, gallery[0]().xdim, gallery[0]().ydim);
 	FOR_ALL_OBJECTS_IN_METADATA(mdIn)
 	{
 		if ((nImg+1)%Nprocessors==rank)
@@ -205,13 +209,21 @@ void ProgReconstructSignificant::alignImagesToGallery()
 					mGalleryProjection.aliasImageInStack(gallery[nVolume](),nDir);
 					mGalleryProjection.setXmippOrigin();
 					double corr;
-					if (! dontCheckMirrors)
+					if (! dontCheckMirrors) {
+					    timeUtils::reportTimeUs("alignImagesWithMirror", [&]{
 						corr=alignImagesConsideringMirrors(mGalleryProjection,transforms[nDir],
 								mCurrentImageAligned,M,aux,aux2,aux3,DONT_WRAP);
+					    });
+					}
 					else
 						corr = alignImages(mGalleryProjection, mCurrentImageAligned,
 						                   M, DONT_WRAP);
 
+					counter++;
+					if (counter == maxIters) {
+					    printf("iterations done\n");
+					    exit(0);
+					}
 //					double corr=alignImagesConsideringMirrors(mGalleryProjection,
 //							mCurrentImageAligned,M,aux,aux2,aux3,DONT_WRAP);
 					M=M.inv();

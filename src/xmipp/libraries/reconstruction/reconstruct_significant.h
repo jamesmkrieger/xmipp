@@ -30,6 +30,7 @@
 #include <data/filters.h>
 #include "angular_project_library.h"
 #include "volume_initial_simulated_annealing.h"
+#include "core/utils/time_utils.h"
 
 /**@defgroup ReconstructSignificant Reconstruct multiple volumes analyzing significant correlations
    @ingroup ReconsLibrary */

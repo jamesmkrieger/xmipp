@@ -1977,50 +1977,75 @@ double alignImages(const MultidimArray<double>& Iref, const AlignmentTransforms&
     // Align the image with the reference
     for (int i = 0; i < 3; i++)
     {
+        timeUtils::reportTimeUs("alignment iteration", [&]{
         // Shift then rotate
 		if (((shiftXSR > SHIFT_THRESHOLD) || (shiftXSR < (-SHIFT_THRESHOLD))) ||
 			((shiftYSR > SHIFT_THRESHOLD) || (shiftYSR < (-SHIFT_THRESHOLD))))
 		{
+		    timeUtils::reportTimeUs("shift_estimate", [&]{
 			bestNonwrappingShift(Iref, IrefTransforms.FFTI, aux.IauxSR, shiftXSR, shiftYSR, aux2);
 			MAT_ELEM(aux.ASR,0,2) += shiftXSR;
 			MAT_ELEM(aux.ASR,1,2) += shiftYSR;
+		    });
+		    timeUtils::reportTimeUs("apply geo", [&]{
 			applyGeometry(LINEAR, aux.IauxSR, I, aux.ASR, IS_NOT_INV, wrap);
+		    });
 		}
 
 		if (bestRotSR > ROTATE_THRESHOLD)
 		{
+		    timeUtils::reportTimeUs("rotation_estimate", [&]{
 			normalizedPolarFourierTransform(aux.IauxSR, aux.polarFourierI, true,
 											XSIZE(Iref) / 5, XSIZE(Iref) / 2, aux.plans, 1);
 
 			bestRotSR = best_rotation(IrefTransforms.polarFourierI, aux.polarFourierI, aux3);
 			rotation2DMatrix(bestRotSR, aux.R);
 			aux.ASR = aux.R * aux.ASR;
+		    });
+			timeUtils::reportTimeUs("apply geo", [&]{
 			applyGeometry(LINEAR, aux.IauxSR, I, aux.ASR, IS_NOT_INV, wrap);
+			});
 		}
 
         // Rotate then shift
 		if (bestRotRS > ROTATE_THRESHOLD)
 		{
-			normalizedPolarFourierTransform(aux.IauxRS, aux.polarFourierI, true,
+		    timeUtils::reportTimeUs("rotation_estimate", [&]{
+		        normalizedPolarFourierTransform(aux.IauxRS, aux.polarFourierI, true,
+
 											XSIZE(Iref) / 5, XSIZE(Iref) / 2, aux.plans, 1);
 			bestRotRS = best_rotation(IrefTransforms.polarFourierI, aux.polarFourierI, aux3);
 			rotation2DMatrix(bestRotRS, aux.R);
 			aux.ARS = aux.R * aux.ARS;
+		    });
+			timeUtils::reportTimeUs("apply geo", [&]{
 			applyGeometry(LINEAR, aux.IauxRS, I, aux.ARS, IS_NOT_INV, wrap);
+			});
 		}
 
 		if (((shiftXRS > SHIFT_THRESHOLD) || (shiftXRS < (-SHIFT_THRESHOLD))) ||
 			((shiftYRS > SHIFT_THRESHOLD) || (shiftYRS < (-SHIFT_THRESHOLD))))
 		{
+		    timeUtils::reportTimeUs("shift_estimate", [&]{
 			bestNonwrappingShift(Iref, IrefTransforms.FFTI, aux.IauxRS, shiftXRS, shiftYRS, aux2);
 			MAT_ELEM(aux.ARS,0,2) += shiftXRS;
 			MAT_ELEM(aux.ARS,1,2) += shiftYRS;
+		    });
+			timeUtils::reportTimeUs("apply geo", [&]{
 			applyGeometry(LINEAR, aux.IauxRS, I, aux.ARS, IS_NOT_INV, wrap);
+			});
 		}
+        });
     }
 
-    double corrRS = correlationIndex(aux.IauxRS, Iref);
-    double corrSR = correlationIndex(aux.IauxSR, Iref);
+    double corrRS;
+    timeUtils::reportTimeUs("correlation", [&]{
+    corrRS = correlationIndex(aux.IauxRS, Iref);
+    });
+    double corrSR;
+    timeUtils::reportTimeUs("correlation", [&]{
+    corrSR= correlationIndex(aux.IauxSR, Iref);
+    });
     double corr;
     if (corrRS > corrSR)
     {
@@ -2067,8 +2092,14 @@ double alignImagesConsideringMirrors(const MultidimArray<double>& Iref, const Al
     Imirror.selfReverseX();
     Imirror.setXmippOrigin();
 
-    double corr=alignImages(Iref, IrefTransforms, I, M, wrap, aux, aux2, aux3);
-    double corrMirror=alignImages(Iref, IrefTransforms, Imirror, Mmirror, wrap, aux, aux2, aux3);
+    double corr;
+    timeUtils::reportTimeUs("alignImages", [&]{
+        corr = alignImages(Iref, IrefTransforms, I, M, wrap, aux, aux2, aux3);
+    });
+    double corrMirror;
+    timeUtils::reportTimeUs("alignImages (mirror)", [&]{
+    corrMirror=alignImages(Iref, IrefTransforms, Imirror, Mmirror, wrap, aux, aux2, aux3);
+    });
     if (mask!=NULL)
     {
     	corr = correlationIndex(Iref, I, mask);
