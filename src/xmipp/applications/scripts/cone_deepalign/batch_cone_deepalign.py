@@ -116,6 +116,17 @@ if __name__=="__main__":
 	            # Store sample
                 Iexp = np.reshape(xmippLib.Image(self.pathsExp[ID]).getData(),(self.dim,self.dim,1))
                 Iexp = (Iexp-np.mean(Iexp))/np.std(Iexp)
+                #psiDeg = np.random.uniform(-180, 180)
+                #psi = psiDeg * math.pi / 180.0
+                #maxShift = round(self.dim / 10)
+                #deltaX = np.random.uniform(-maxShift, maxShift)
+                #deltaY = np.random.uniform(-maxShift, maxShift)
+                #c = math.cos(psi)
+                #s = math.sin(psi)
+                #M = np.float32([[c, s, (1 - c) * Xdim - s * Xdim + deltaX], [-s, c, s * Xdim + (1 - c) * Xdim + deltaY]])
+                #newImg = cv2.warpAffine(Iexp, M, (Xdim, Xdim), borderMode=cv2.BORDER_REFLECT_101)
+                #newImg = (newImg-np.mean(newImg))/np.std(newImg)
+                #newImg = np.reshape(newImg,(self.dim,self.dim,1))
                 Xexp[i,] = Iexp
 
 	            # Store class
@@ -262,9 +273,6 @@ if __name__=="__main__":
 
         return np.asarray(val_img_exp).astype('float64'), np.asarray(val_labels).astype('int64')
 
-
-
-
     mdExp = xmippLib.MetaData(fnXmdExp)
     Nexp = mdExp.size()
     labels = np.loadtxt(fnLabels)
@@ -281,8 +289,6 @@ if __name__=="__main__":
     print(cont, len(labels_vector))
 
     x_val, y_val = createValidationData(pathsExp, labels_vector, numOut, 0.2)
-    #np.savetxt(os.path.join(fnODir,'pruebaYval.txt'), y_val)
-    print(len(labels_vector))
     #END AJ
 
     # Parameters
@@ -307,6 +313,7 @@ if __name__=="__main__":
 	    list_IDs_ones = np.append(list_IDs_ones, list_IDs_ones_orig)
 	list_IDs_ones = np.append(list_IDs_ones, list_IDs_ones[0:(lenTotal%len(list_IDs_ones))])
     print(len(list_IDs_zeros), len(list_IDs_ones))
+    print(len(pathsExp), batch_size, round(len(pathsExp)/batch_size))
     labels = labels_vector
     # Generator
     training_generator = DataGenerator(list_IDs_zeros, list_IDs_ones, labels, **params)
@@ -327,10 +334,10 @@ if __name__=="__main__":
     model.summary()
     adam_opt = Adam(lr=0.001)
     if numOut>2:
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=adam_opt)
+        model.compile(loss='sparse_categorical_crossentropy', optimizer=adam_opt, metrics=['accuracy'])
     elif numOut==2:
 	#model.compile(loss='binary_crossentropy', optimizer='Adam')
-	model.compile(loss='mean_absolute_error', optimizer=adam_opt)
+	model.compile(loss='mean_absolute_error', optimizer=adam_opt, metrics=['accuracy'])
 
     steps = round(len(pathsExp)/batch_size)
     history = model.fit_generator(generator = training_generator, steps_per_epoch = steps, epochs=numEpochs, verbose=1, validation_data = (x_val, y_val), callbacks=callbacks_list, workers=4, use_multiprocessing=True)    #AJ probar estas cosas de multiprocessing
