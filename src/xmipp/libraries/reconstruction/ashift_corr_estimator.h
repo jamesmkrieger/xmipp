@@ -44,9 +44,10 @@ public:
         release();
     }
 
-    virtual void init2D(const HW &hw, AlignType type,
+    virtual void init2D(const std::vector<HW*> &hw, AlignType type,
             const FFTSettingsNew<T> &dims, size_t maxShift,
-            bool includingBatchFT, bool includingSingleFT) = 0;
+            bool includingBatchFT, bool includingSingleFT,
+            bool allowDataOverwrite) = 0;
 
     virtual void computeCorrelations2DOneToN(
             std::complex<T> *inOut, bool center) = 0;
@@ -62,11 +63,6 @@ public:
             const Dimensions &dims,
             bool center) = 0;
 
-    static std::vector<T> findMaxAroundCenter(
-            const T *data,
-            const Dimensions &dims,
-            size_t maxShift,
-            std::vector<Point2D<float>> &shifts);
     void release() override;
 
 protected:
@@ -77,11 +73,13 @@ protected:
     bool m_includingBatchFT;
     bool m_includingSingleFT;
     bool m_is_ref_FD_loaded;
+    bool m_allowDataOverwrite;
 
     void setDefault() override;
     virtual void init2D(AlignType type,
             const FFTSettingsNew<T> &dims, size_t maxShift,
-            bool includingBatchFT, bool includingSingleFT);
+            bool includingBatchFT, bool includingSingleFT,
+            bool allowDataOverwrite);
 
     void check() override;
     virtual void init2DOneToN() {}; // nothing to do
@@ -89,7 +87,7 @@ protected:
     // parent init functions cannot be used, but cannot be hidden
     // in private block, to make compiler (NVCC) happy
     using AShiftEstimator<T>::init2D;
-    void init2D(const HW &hw, AlignType type,
+    void init2D(const std::vector<HW*> &hw, AlignType type,
                    const Dimensions &dims, size_t batch, size_t maxShift) {};
 };
 
