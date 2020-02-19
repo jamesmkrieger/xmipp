@@ -145,11 +145,12 @@ private:
     void fillRow(MDRow &row,
             const Matrix2D<float> &pose,
             size_t refIndex,
-            double weight, double maxVote);
+            double weight, double maxVote, size_t i);
     void fillRow(MDRow &row,
             const Matrix2D<float> &pose,
             size_t refIndex,
-            double weight);
+            double weight,
+			size_t i);
     void extractMax(
             std::vector<float> &data,
             size_t &pos, float &val);
