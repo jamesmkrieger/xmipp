@@ -154,13 +154,14 @@ void AProgAlignSignificant<T>::load(DataHelper &h) {
         FileName fn;
         md.getValue(MDL_IMAGE, fn, __iter.objId);
         if (IS_REF) {
-            float rot=0.;
-            float tilt=0.;
+            // if these labels are not present, we will use our default values
+            float rot = 0.f;
+            md.getValue(MDL_ANGLE_ROT, rot,__iter.objId);
+            float tilt = 0.f;
+            md.getValue(MDL_ANGLE_TILT, tilt,__iter.objId);
+            // ref label is required, as it allows for manual check of the result
+            // without it, we don't know which reference is which
             int ref;
-            if(!m_updateHelper.doUpdate){
-            	md.getValue(MDL_ANGLE_ROT, rot,__iter.objId);
-            	md.getValue(MDL_ANGLE_TILT, tilt,__iter.objId);
-            }
             md.getValue(MDL_REF, ref,__iter.objId);
 			/*if(md.containsLabel(MDL_ITEM_ID))
 				md.getValue(MDL_ITEM_ID, ref,__iter.objId);
@@ -190,15 +191,8 @@ void AProgAlignSignificant<T>::validate(const DataHelper &h, bool isRefData) {
     if ( ! h.md.containsLabel(MDL_IMAGE)) {
         REPORT_ERROR(ERR_MD, h.fn + ": does not have MDL_IMAGE label");
     }
-    if (isRefData && !m_updateHelper.doUpdate) {
-        bool isValid = h.md.containsLabel(MDL_ANGLE_ROT)
-            && h.md.containsLabel(MDL_ANGLE_TILT);
-            //&& h.md.containsLabel(MDL_REF);
-        if ( ! isValid) {
-            REPORT_ERROR(ERR_MD, h.fn + ": at least one of the following label is missing: "
-            		"MDL_ANGLE_ROT, MDL_ANGLE_TILT");
-                    //"MDL_ANGLE_ROT, MDL_ANGLE_TILT, MDL_REF");
-        }
+    if (isRefData && (! h.md.containsLabel(MDL_REF))) {
+        REPORT_ERROR(ERR_MD, h.fn + ": missing MDL_REF label");
     }
 }
 
@@ -315,7 +309,7 @@ void AProgAlignSignificant<T>::fillRow(MDRow &row,
         const Matrix2D<float> &pose,
         size_t refIndex,
         double weight,
-		size_t i) {
+        size_t imgIndex) {
     // get orientation
     bool flip;
     float scale;
@@ -340,15 +334,17 @@ void AProgAlignSignificant<T>::fillRow(MDRow &row,
     row.setValue(MDL_SHIFT_Y, (double)-shiftY); // store negative translation
     row.setValue(MDL_FLIP, flip);
     row.setValue(MDL_REF, getRefMetaIndex(refIndex));
-    row.setValue(MDL_IMAGE_IDX, i);
+    row.setValue(MDL_IMAGE_IDX, getImgMetaIndex(row, imgIndex));
 }
 
 template<typename T>
 void AProgAlignSignificant<T>::fillRow(MDRow &row,
         const Matrix2D<float> &pose,
         size_t refIndex,
-        double weight, double maxVote, size_t i) {
-    fillRow(row, pose, refIndex, weight, i);
+        double weight,
+        size_t imgIndex,
+        double maxVote) {
+    fillRow(row, pose, refIndex, weight, imgIndex);
     row.setValue(MDL_MAXCC, (double)maxVote);
 }
 
@@ -433,7 +429,7 @@ void AProgAlignSignificant<T>::storeAlignedImages() {
         // for all references that we want to store, starting from the best matching one
         for (size_t nthBest = 0; nthBest < m_noOfBestToKeep; ++nthBest) {
             const auto &a = m_assignments.at(i);
-            fillRow(row, a.pose, a.refIndex, a.weight, maxVote, imgIdx);
+            fillRow(row, a.pose, a.refIndex, a.weight, a.imgIndex, maxVote);
             result.addRow(row);
             i++;
         }
@@ -455,6 +451,7 @@ void AProgAlignSignificant<T>::saveRefStk() {
     checkLogDelete(fn);
     for (size_t n = 0; n < dims.n(); ++n ) {
         FileName name;
+        // we create a new file, so we start naming from scratch
         name.compose(n + 1, fn); // within stk file, index images from one (1)
         size_t offset = n * dims.sizeSingle();
         MultidimArray<T> wrapper(1, 1, dims.y(), dims.x(), m_referenceImages.data.get() + offset);
@@ -477,6 +474,7 @@ void AProgAlignSignificant<T>::saveRefXmd() {
         if (0 == md.size()) {
             continue; // ignore MD for empty references
         }
+        // block names should be consistent with the original reference index
         auto blockName = formatString(pattern, getRefMetaIndex(n));
         md.write(blockName + fn, MD_APPEND);
     }
@@ -484,7 +482,7 @@ void AProgAlignSignificant<T>::saveRefXmd() {
 
 template<typename T>
 void AProgAlignSignificant<T>::updateRefXmd(size_t refIndex, std::vector<Assignment> &images) {
-    const size_t indexInStk = refIndex + 1; // within stk file, index images from one (1)
+    const size_t indexInStk = refIndex + 1; // within metadata file, index images from one (1)
     FileName refName;
     auto &refMeta = m_updateHelper.refBlock;
     // name of the reference
@@ -506,7 +504,7 @@ void AProgAlignSignificant<T>::updateRefXmd(size_t refIndex, std::vector<Assignm
     size_t i=0;
     for (const auto &a : images) {
         getImgRow(row, a.imgIndex);
-        fillRow(row, a.pose, refIndex, a.weight, i);
+        fillRow(row, a.pose, refIndex, a.weight, a.imgIndex);
         md.addRow(row);
         i++;
     }

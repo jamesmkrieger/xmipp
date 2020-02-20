@@ -145,12 +145,14 @@ private:
     void fillRow(MDRow &row,
             const Matrix2D<float> &pose,
             size_t refIndex,
-            double weight, double maxVote, size_t i);
+            double weight,
+            size_t imgIndex,
+            double maxVote);
     void fillRow(MDRow &row,
             const Matrix2D<float> &pose,
             size_t refIndex,
             double weight,
-			size_t i);
+            size_t imgIndex);
     void extractMax(
             std::vector<float> &data,
             size_t &pos, float &val);
@@ -163,6 +165,14 @@ private:
 
     inline int getRefMetaIndex(size_t refIndex) {
         return m_referenceImages.indexes.at(refIndex);
+    }
+
+    inline size_t getImgMetaIndex(const MDRow &row, size_t imgIndex) {
+        // by default, use our index
+        size_t index = imgIndex + 1; // within metadata file, index images from one (1)
+        // if the label is present, use its value. Otherwise, use default value
+        row.getValue(MDL_IMAGE_IDX, index);
+        return index;
     }
 
     inline void getImgRow(MDRow &row, size_t imgIndex) {

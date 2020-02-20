@@ -45,8 +45,8 @@ void interpolateKernel(const T * __restrict__ in, T * __restrict__ out, float * 
     T outY = x * t[3] + y * t[4] + t[5] + (yDim / (T)2);
 
     T val = 0;
-    if ((outX >= 0) && (outX < (T)xDim)
-        && (outY >= 0) && (outY < (T)yDim)) {
+    if ((outX >= 0) && (outX < ((T)xDim - 1))
+        && (outY >= 0) && (outY < ((T)yDim - 1))) {
         val = biLerp(src, xDim, yDim, outX, outY);
     }
 
@@ -57,7 +57,8 @@ void interpolateKernel(const T * __restrict__ in, T * __restrict__ out, float * 
 template<typename T>
 __global__
 void sumKernel(const T * __restrict__ in, T * __restrict__ out,
-        int xDim, int yDim, int nDim) {
+        const T * __restrict__ weights,
+        unsigned xDim, unsigned yDim, unsigned nDim, T normFactor) {
     // assign pixel to thread
     unsigned x = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -65,10 +66,10 @@ void sumKernel(const T * __restrict__ in, T * __restrict__ out,
     if (y >= yDim) return;
 
     unsigned pos = (y * xDim) + x;
-    double v = in[pos]; // double on purpose, to improve the precision
+    double v = in[pos] * weights[0]; // double on purpose, to improve the precision
     for (unsigned n = 1; n < nDim; ++n) {
         unsigned offset = n * xDim * yDim;
-        v += in[offset + pos];
+        v += in[offset + pos] * weights[n];
     }
-    out[pos] = v / nDim;
+    out[pos] = v / normFactor;
 }
