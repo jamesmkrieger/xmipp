@@ -40,7 +40,14 @@ namespace Alignment {
 
 template<typename T>
 class ProgAlignSignificantGPU : public AProgAlignSignificant<T> {
-using typename AProgAlignSignificant<T>::Assignment;
+// 'using' cannot be used due to bug in g++ 4.8.4 (cannot access protected members using full name)
+typedef typename AProgAlignSignificant<T>::Assignment Assignment;
+public:
+
+    void defineParams() override;
+    void readParams() override;
+    void show() const override;
+
 protected:
     std::vector<AlignmentEstimation> align(const T *ref, const T *others) override;
 
@@ -53,6 +60,18 @@ private:
     void initTransformer(BSplineGeoTransformer<T> &t, std::vector<HW*> &hw, const Dimensions &dims);
     void initMeritComputer(AMeritComputer<T> &mc, std::vector<HW*> &hw, const Dimensions &dims);
 
+    void align(const T *ref, const Dimensions &refDims,
+            const T *others, const Dimensions &otherDims,
+            unsigned device,
+            AlignmentEstimation *dest);
+
+    void updateRefs(
+            T *refs, const Dimensions &refDims,
+            const T *others, const Dimensions &otherDims,
+            const std::vector<Assignment> &assignments,
+            unsigned device,
+            size_t refOffset);
+
     void interpolate(BSplineGeoTransformer<T> &transformer,
             T *data,
             const std::vector<Assignment> &assignments,
@@ -61,6 +80,7 @@ private:
             size_t toProcess);
 
     size_t m_maxBatchSize = 300;
+    std::vector<unsigned> m_devices;
 };
 
 
