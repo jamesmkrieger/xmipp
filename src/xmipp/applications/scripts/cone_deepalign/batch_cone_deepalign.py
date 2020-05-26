@@ -26,9 +26,9 @@ if __name__=="__main__":
     batch_size = int(sys.argv[8])
     gpuId = sys.argv[9]
 
-    #if not gpuId.startswith('-1'):
-    #    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-    #    os.environ["CUDA_VISIBLE_DEVICES"] = gpuId
+    if not gpuId.startswith('-1'):
+        os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+        os.environ["CUDA_VISIBLE_DEVICES"] = gpuId
     
 
     from keras.callbacks import TensorBoard, ModelCheckpoint

@@ -51,9 +51,9 @@ if __name__=="__main__":
     numMax=int(sys.argv[5])
     gpuId = sys.argv[6]
 
-    #if not gpuId.startswith('-1'):
-    #    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-    #    os.environ["CUDA_VISIBLE_DEVICES"] = gpuId
+    if not gpuId.startswith('-1'):
+        os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+        os.environ["CUDA_VISIBLE_DEVICES"] = gpuId
 
     from keras.callbacks import TensorBoard, ModelCheckpoint
     from keras.models import Model
