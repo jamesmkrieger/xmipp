@@ -1,0 +1,73 @@
+#!/bin/bash
+
+IN_DIR=testIn
+OUT_DIR=testOut
+
+function rebuild() {
+    ./xmipp compile && ./xmipp install 
+}
+
+function genData() {
+    mkdir -p $IN_DIR
+    xmipp_test_align_significant
+}
+
+function computeStatistics() { # 1=file
+    FULLNAME=$1
+    FN="${FULLNAME%.*}"
+    xmipp_image_statistics --save_image_stats -i $OUT_DIR/$1 > /dev/null
+    mv average.xmp $OUT_DIR/${FN}_average.xmp
+    mv stddev.xmp $OUT_DIR/${FN}_stddev.xmp
+}
+
+function runAlignSignificant() { # 1=exp_imgs, 2=ref_img, 3=test_name
+    xmipp_cuda_align_significant -i $IN_DIR/$1 -r $IN_DIR/$2  -o $OUT_DIR/$3_AS.xmd
+    xmipp_transform_geometry -i $OUT_DIR/$3_AS.xmd -o $OUT_DIR/$3_AS_corrected.xmd --apply_transform --inverse
+    computeStatistics $3_AS_corrected.xmd
+}
+
+function runReconstructSignificant() {
+    xmipp_reconstruct_significant --initgallery $IN_DIR/$2 -i $IN_DIR/$1 --odir $OUT_DIR --iter 1 --dontReconstruct
+    rm $OUT_DIR/images_*.xmd
+    mv $OUT_DIR/angles_iter001_00.xmd $OUT_DIR/$3_RS.xmd
+    xmipp_transform_geometry -i $OUT_DIR/$3_RS.xmd -o $OUT_DIR/$3_RS_corrected.xmd --apply_transform --inverse
+    computeStatistics $3_RS_corrected.xmd
+}
+
+function runTest() { # 1=exp_imgs, 2=ref_img, 3=test_name
+    runAlignSignificant $1 $2 $3
+    runReconstructSignificant $1 $2 $3
+
+}
+
+function test1() {
+runTest armClockRotatedImgs.stk armClockRotatedRef.xmd test1
+}
+
+function test2() {
+runTest armClockRSImgs.stk armClockRSRef.xmd test2
+}
+
+function buildAndCreateData() {
+    rebuild
+    rm -rf $IN_DIR
+    genData
+    rm -rf $OUT_DIR
+    mkdir -p $OUT_DIR
+}
+
+case $1 in
+    all)
+    buildAndCreateData
+    test1
+    test2
+    ;;
+    tests)
+    test1
+    test2
+    ;;
+esac
+
+
+
+

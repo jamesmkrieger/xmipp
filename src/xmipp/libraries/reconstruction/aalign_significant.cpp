@@ -230,6 +230,7 @@ template<bool IS_ESTIMATION_TRANSPOSED>
 void AProgAlignSignificant<T>::computeWeightsAndSave(
         const std::vector<AlignmentEstimation> &est,
         size_t refIndex) {
+    printf("weights for reference %lu\n", refIndex);
     const size_t noOfRefs = m_referenceImages.dims.n();
     const size_t noOfSignals = m_imagesToAlign.dims.n();
 
@@ -262,6 +263,7 @@ void AProgAlignSignificant<T>::computeWeightsAndSave(
 
     // for all similar references
     for (size_t r = 0; r < noOfRefs; ++r) {
+        printf("testing ref %lu \n", r);
         if (mask.at(r)) {
             // get figure of merit of all signals
             for (size_t s = 0; s < noOfSignals; ++s) {
@@ -270,9 +272,12 @@ void AProgAlignSignificant<T>::computeWeightsAndSave(
                 } else {
                     figsOfMerit.emplace_back(est.at(r).figuresOfMerit.at(s), r, s);
                 }
+                printf("\tsignal %lu merit (ref %lu img %lu merit %f)\n", s, figsOfMerit.back().refIndex, figsOfMerit.back().imgIndex, figsOfMerit.back().merit);
             }
         }
+        printf("\n");
     }
+    printf("\n");
     computeWeightsAndSave(figsOfMerit, refIndex);
 }
 
@@ -291,19 +296,25 @@ void AProgAlignSignificant<T>::computeWeightsAndSave(
         return l.merit < r.merit;
     });
     auto invMaxMerit = 1.f / figsOfMerit.back().merit;
+    printf("max merit %f (inv %f)\n", figsOfMerit.back().merit, invMaxMerit);
 
     // set weight for all images
     for (size_t c = 0; c < noOfNumbers; ++c) {
+        printf("record %lu ", c);
         const auto &tmp = figsOfMerit.at(c);
         if (tmp.refIndex != refIndex) {
+            printf("skipped because refIndex != recordRefIndex (%lu != %lu)\n", tmp.refIndex, refIndex);
             continue; // current record is for different reference
         }
         // cumulative density function - probability of having smaller value then the rest
         float cdf = c / (float)(noOfNumbers - 1); // <0..1> // won't work if we have just one reference
         float merit = tmp.merit;
+        printf(" cdf %f merit %f ", cdf, merit);
         if (merit > 0.f) {
             weights.at(tmp.imgIndex) = merit * invMaxMerit * cdf;
+            printf("storing weights at %lu value %f", tmp.imgIndex, weights.at(tmp.imgIndex));
         }
+        printf("\n");
     }
 }
 

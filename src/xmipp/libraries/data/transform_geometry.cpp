@@ -201,8 +201,6 @@ void ProgTransformGeometry::preProcess()
         if (dim == 3)
             MAT_ELEM(A, 0, 2) *= -1.;
     }
-    if (inverse)
-        A = A.inv();
 }
 
 void ProgTransformGeometry::processImage(const FileName &fnImg,
@@ -226,6 +224,8 @@ void ProgTransformGeometry::processImage(const FileName &fnImg,
     if (apply_geo || mdVol)
         geo2TransformationMatrix(rowOut, B);
 
+    MAT_ELEM(B,0,2) *= -1;
+    MAT_ELEM(B,1,2) *= -1;
       T = A * B;
     }
 
@@ -241,7 +241,7 @@ void ProgTransformGeometry::processImage(const FileName &fnImg,
         imgOut.setDatatype(img.getDatatype());
         imgOut().resize(1, zdimOut, ydimOut, xdimOut, false);
         imgOut().setXmippOrigin();
-        applyGeometry(splineDegree, imgOut(), img(), T, IS_NOT_INV, wrap, 0.);
+        applyGeometry(splineDegree, imgOut(), img(), T, inverse, wrap, 0.);
         imgOut.write(fnImgOut);
         rowOut.resetGeo(false);
     }
