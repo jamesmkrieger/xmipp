@@ -150,12 +150,16 @@ void IterativeAlignmentEstimator<T>::loadReference(
 
 template<typename T>
 AlignmentEstimation IterativeAlignmentEstimator<T>::compute(
-        const T * __restrict__ others, // it would be good if data is normalized, but probably it does not have to be
-        unsigned iters) {
+        const T *others, // it would be good if data is normalized, but probably it does not have to be
+        unsigned iters,
+        bool testFlip) {
+
+    const auto &dims = m_rot_est.getSettings().otherDims;
+
     m_transformer.setSrc(others);
 
     // prepare transformer which is responsible for applying the pose t
-    const size_t n = m_rot_est.getSettings().otherDims.n();
+    const size_t n = dims.n();
     // try rotation -> shift
     auto result_RS = AlignmentEstimation(n);
     compute(iters, result_RS, true);
@@ -163,12 +167,54 @@ AlignmentEstimation IterativeAlignmentEstimator<T>::compute(
     auto result_SR = AlignmentEstimation(n);
     compute(iters, result_SR, false);
 
+    // mirror data
+    if (testFlip) {
+        auto copy = new T[dims.sizePadded()]();
+        MultidimArray<T> mirror;
+        for (size_t i = 0; i < n; ++i) {
+            size_t offset = i * dims.sizeSingle();
+            MultidimArray<T> wrapperOrig(1, 1, dims.y(), dims.x(), const_cast<T*>(others) + offset);
+            MultidimArray<T> wrapperMirror(1, 1, dims.y(), dims.x(), const_cast<T*>(copy) + offset);
+            wrapperMirror = wrapperOrig;
+            wrapperMirror.selfReverseX();
+        }
+
+        m_transformer.setSrc(copy);
+
+        // prepare transformer which is responsible for applying the pose t
+        // try rotation -> shift
+        auto result_RS_mirrored = AlignmentEstimation(n);
+        compute(iters, result_RS_mirrored, true);
+        // try shift-> rotation
+        auto result_SR_mirrored = AlignmentEstimation(n);
+        compute(iters, result_SR_mirrored, false);
+
+        for (size_t i = 0; i < n; ++i) {
+            // find best result (mirror / not mirrored)
+            if (result_RS.figuresOfMerit.at(i) < result_RS_mirrored.figuresOfMerit.at(i)) {
+                result_RS.figuresOfMerit.at(i) = result_RS_mirrored.figuresOfMerit.at(i);
+                result_RS.poses.at(i) = result_RS_mirrored.poses.at(i);
+                MAT_ELEM(result_RS.poses.at(i),0,0) *= -1;
+                MAT_ELEM(result_RS.poses.at(i),1,0) *= -1;
+            }
+            // find best result (mirror / not mirrored)
+            if (result_SR.figuresOfMerit.at(i) < result_SR_mirrored.figuresOfMerit.at(i)) {
+                result_SR.figuresOfMerit.at(i) = result_SR_mirrored.figuresOfMerit.at(i);
+                result_SR.poses.at(i) = result_SR_mirrored.poses.at(i);
+                MAT_ELEM(result_SR.poses.at(i),0,0) *= -1;
+                MAT_ELEM(result_SR.poses.at(i),1,0) *= -1;
+            }
+        }
+        delete[] copy;
+    }
     for (size_t i = 0; i < n; ++i) {
+        // find best result (shift+rot / rot+shift)
         if (result_RS.figuresOfMerit.at(i) < result_SR.figuresOfMerit.at(i)) {
             result_RS.figuresOfMerit.at(i) = result_SR.figuresOfMerit.at(i);
             result_RS.poses.at(i) = result_SR.poses.at(i);
         }
     }
+
 
     return result_RS;
 }

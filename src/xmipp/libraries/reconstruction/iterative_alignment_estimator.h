@@ -59,7 +59,7 @@ public:
     void loadReference(const T *ref);
 
     AlignmentEstimation compute(const T *others, // it would be good if data is normalized, but probably it does not have to be
-            unsigned iters = 3);
+            unsigned iters = 3, bool testFlip=false);
 protected:
     static void sApplyTransform(ctpl::thread_pool &pool, const Dimensions &dims, // FIXME DS remove, also includes
                 const AlignmentEstimation &estimation,

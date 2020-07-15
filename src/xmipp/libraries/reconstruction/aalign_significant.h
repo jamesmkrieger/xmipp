@@ -54,6 +54,8 @@ protected:
         Dimensions otherDims = Dimensions(0); // there should be more reference images than experimental images
 
         unsigned cpuThreads;
+        bool allowFlip;
+        unsigned short iterations;
     };
 
     struct Assignment {

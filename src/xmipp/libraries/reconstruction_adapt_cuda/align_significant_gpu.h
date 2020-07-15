@@ -60,7 +60,7 @@ private:
     void initTransformer(BSplineGeoTransformer<T> &t, std::vector<HW*> &hw, const Dimensions &dims);
     void initMeritComputer(AMeritComputer<T> &mc, std::vector<HW*> &hw, const Dimensions &dims);
 
-    void align(const T *ref, const Dimensions &refDims,
+    void alignUsingDevice(const T *ref, const Dimensions &refDims,
             const T *others, const Dimensions &otherDims,
             unsigned device,
             AlignmentEstimation *dest);

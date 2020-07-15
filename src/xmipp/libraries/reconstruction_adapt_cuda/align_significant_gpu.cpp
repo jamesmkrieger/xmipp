@@ -84,10 +84,11 @@ std::vector<AlignmentEstimation> ProgAlignSignificantGPU<T>::align(const T *ref,
             const T *others, const Dimensions &otherDims,
             unsigned device,
             AlignmentEstimation *dest) {
-        align(ref, refDims, others, otherDims, device, dest);
+        alignUsingDevice(ref, refDims, others, otherDims, device, dest);
     };
     size_t step = s.refDims.n() / m_devices.size();
     for (size_t devIndex = 0; devIndex < m_devices.size(); ++devIndex) {
+        // each device aligns all experimental images against a subset of references
         size_t offset = devIndex * step;
         size_t toProcess = std::min(step, s.refDims.n() - offset);
         futures.emplace_back(pool.push(f,
@@ -105,7 +106,7 @@ std::vector<AlignmentEstimation> ProgAlignSignificantGPU<T>::align(const T *ref,
 }
 
 template<typename T>
-void ProgAlignSignificantGPU<T>::align(const T *ref, const Dimensions &refDims,
+void ProgAlignSignificantGPU<T>::alignUsingDevice(const T *ref, const Dimensions &refDims,
         const T *others, const Dimensions &otherDims,
         unsigned device,
         AlignmentEstimation *dest) {
@@ -155,7 +156,7 @@ void ProgAlignSignificantGPU<T>::align(const T *ref, const Dimensions &refDims,
         for (size_t i = 0; i < otherDims.n(); i += processDims.n()) {
             // run on a full-batch subset
             size_t offset = std::min(i, otherDims.n() - processDims.n());
-            auto tmp = aligner.compute(others + (offset * otherDims.sizeSingle()));
+            auto tmp = aligner.compute(others + (offset * otherDims.sizeSingle()), this->getSettings().iterations, this->getSettings().allowFlip);
 
             // merge results
             dest->figuresOfMerit.insert(dest->figuresOfMerit.begin() + offset,
@@ -167,6 +168,8 @@ void ProgAlignSignificantGPU<T>::align(const T *ref, const Dimensions &refDims,
         }
         dest++;
     }
+    hw.at(0)->unlockMemory(refData);
+    free(refData);
 }
 
 

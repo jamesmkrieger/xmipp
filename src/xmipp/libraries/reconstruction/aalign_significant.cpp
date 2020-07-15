@@ -41,6 +41,8 @@ void AProgAlignSignificant<T>::defineParams() {
     addParamsLine("   [--allowInputSwap]              : Allow swapping reference and experimental images");
     addParamsLine("   [--useWeightInsteadOfCC]        : Select the best reference using weight, instead of CC");
     addParamsLine("   [--oUpdatedRefs <baseName=\"\">]: Update references using assigned experimental images. Store result here");
+    addParamsLine("   [--allowFlip]                   : If present, flip of the experimental images will be considered");
+    addParamsLine("   [--iterations <i=3>]            : Number of internal iterations");
 }
 
 template<typename T>
@@ -71,6 +73,8 @@ void AProgAlignSignificant<T>::readParams() {
     } else {
         m_settings.cpuThreads = threads;
     }
+    m_settings.allowFlip = checkParam("--allowFlip");
+    m_settings.iterations = getIntParam("--iterations");
 }
 
 template<typename T>
