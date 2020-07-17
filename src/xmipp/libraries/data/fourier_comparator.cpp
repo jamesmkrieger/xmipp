@@ -94,7 +94,6 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
     for (size_t i=0; i<YSIZE(wIdx); ++i)
     {
     	double freqy = DIRECT_A1D_ELEM(wy,i);
-        double freqy2=freqy*freqy;
 
         double freqYvol_X=MAT_ELEM(E,1,0)*freqy;
         double freqYvol_Y=MAT_ELEM(E,1,1)*freqy;
@@ -119,9 +118,9 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
             {
                 // 0 order interpolation
                 // Compute corresponding index in the volume
-                int kVolume=(int)round(freqvol_Z*volumePaddedSize);
-                int iVolume=(int)round(freqvol_Y*volumePaddedSize);
-                int jVolume=(int)round(freqvol_X*volumePaddedSize);
+                int kVolume=(int)std::round(freqvol_Z*volumePaddedSize);
+                int iVolume=(int)std::round(freqvol_Y*volumePaddedSize);
+                int jVolume=(int)std::round(freqvol_X*volumePaddedSize);
                 c = A3D_ELEM(VfourierRealCoefs,kVolume,iVolume,jVolume);
                 d = A3D_ELEM(VfourierImagCoefs,kVolume,iVolume,jVolume);
             }
