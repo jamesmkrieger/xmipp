@@ -62,11 +62,11 @@ public:
     int volumePaddedSize;
 
     // Euler matrix
-    Matrix2D<double> E;
+    Matrix2D<float> E;
 
     // Fourier index
     MultidimArray<int> wIdx;
-    MultidimArray<double> wx, wy;
+    MultidimArray<float> wx, wy;
     MultidimArray<int> wIdxXcount, wIdxYcount;
     int idx0, idxF;
 

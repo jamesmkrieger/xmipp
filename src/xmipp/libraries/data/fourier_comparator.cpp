@@ -52,7 +52,9 @@ void FourierComparator::updateVolume(MultidimArray<double> &V)
 
 void FourierComparator::setEuler(double rot, double tilt, double psi)
 {
-    Euler_angles2matrix(rot,tilt,psi,E);
+	Matrix2D<double> Ed;
+    Euler_angles2matrix(rot,tilt,psi,Ed);
+    typeCast(Ed,E);
 }
 
 void FourierComparator::preparePhasePlane(double shiftx, double shifty, MultidimArray< std::complex<double> > &phase)
@@ -118,11 +120,11 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
     	if (DIRECT_A1D_ELEM(wIdxYcount,i)==0)
     		continue;
 
-    	double freqy = DIRECT_A1D_ELEM(wy,i);
+    	float freqy = DIRECT_A1D_ELEM(wy,i);
 
-        double freqYvol_X=MAT_ELEM(E,1,0)*freqy;
-        double freqYvol_Y=MAT_ELEM(E,1,1)*freqy;
-        double freqYvol_Z=MAT_ELEM(E,1,2)*freqy;
+    	float freqYvol_X=MAT_ELEM(E,1,0)*freqy;
+    	float freqYvol_Y=MAT_ELEM(E,1,1)*freqy;
+    	float freqYvol_Z=MAT_ELEM(E,1,2)*freqy;
         for (size_t j=0; j<idxFF; ++j)
         {
         	int idxij = DIRECT_A2D_ELEM(wIdx,i,j);
@@ -133,12 +135,12 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
         		continue;
 
             // The frequency of pairs (i,j) in 2D
-        	double freqx = DIRECT_A1D_ELEM(wx,j);
+        	float freqx = DIRECT_A1D_ELEM(wx,j);
 
             // Compute corresponding frequency in the volume
-            double freqvol_X=freqYvol_X+MAT_ELEM(E,0,0)*freqx;
-            double freqvol_Y=freqYvol_Y+MAT_ELEM(E,0,1)*freqx;
-            double freqvol_Z=freqYvol_Z+MAT_ELEM(E,0,2)*freqx;
+        	float freqvol_X=freqYvol_X+MAT_ELEM(E,0,0)*freqx;
+        	float freqvol_Y=freqYvol_Y+MAT_ELEM(E,0,1)*freqx;
+        	float freqvol_Z=freqYvol_Z+MAT_ELEM(E,0,2)*freqx;
 
             double c,d;
 
@@ -368,7 +370,7 @@ void FourierComparator::produceSideInfoProjection()
         double phasey=(double)(i) * xxshift;
         double wyi;
     	FFT_IDX2DIGFREQ(i,volumeSize,wyi);
-    	DIRECT_A1D_ELEM(wy,i)=wyi;
+    	DIRECT_A1D_ELEM(wy,i)=(float)wyi;
         for (size_t j=0; j<XSIZE(projectionFourier); ++j)
         {
             // Phase shift to move the origin of the image to the corner
@@ -377,7 +379,7 @@ void FourierComparator::produceSideInfoProjection()
 
             double wxj;
         	FFT_IDX2DIGFREQ(j,volumeSize,wxj);
-        	DIRECT_A1D_ELEM(wx,j)=wxj;
+        	DIRECT_A1D_ELEM(wx,j)=(float)wxj;
         	A2D_ELEM(wIdx,i,j)=(int)std::round(std::sqrt(wxj*wxj+wyi*wyi)*volumeSize);
         }
     }
