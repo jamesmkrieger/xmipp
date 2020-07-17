@@ -43,6 +43,8 @@ public:
     double paddingFactor;
     /// Maximum Frequency for pixels
     double maxFrequency;
+    /// The order of B-Spline for interpolation
+    double BSplineDeg;
 public:
     // Volume to project
     MultidimArray<double> *volume;
@@ -79,12 +81,12 @@ public:
     Image<double> projection;
 public:
     /* Empty constructor */
-    FourierComparator(double paddFactor, double maxFreq);
+    FourierComparator(double paddFactor, double maxFreq, int degree);
 
     /*
      * The constructor of the class
      */
-    FourierComparator(MultidimArray<double> &V, double paddFactor, double maxFreq);
+    FourierComparator(MultidimArray<double> &V, double paddFactor, double maxFreq, int degree);
 
 	/** Set Euler matrix */
     void setEuler(double rot, double tilt, double psi);

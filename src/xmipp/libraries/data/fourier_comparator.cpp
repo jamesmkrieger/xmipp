@@ -27,17 +27,19 @@
 #include <core/xmipp_fft.h>
 
 
-FourierComparator::FourierComparator(double paddFactor, double maxFreq)
+FourierComparator::FourierComparator(double paddFactor, double maxFreq, int degree)
 {
     paddingFactor = paddFactor;
     maxFrequency = maxFreq;
+    BSplineDeg = degree;
     volume = NULL;
 }
 
-FourierComparator::FourierComparator(MultidimArray<double> &V, double paddFactor, double maxFreq)
+FourierComparator::FourierComparator(MultidimArray<double> &V, double paddFactor, double maxFreq, int degree)
 {
     paddingFactor = paddFactor;
     maxFrequency = maxFreq;
+    BSplineDeg = degree;
     updateVolume(V);
 }
 
@@ -97,78 +99,100 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
             double xxshift = -2 * PI * shiftx / volumeSize;
             double c,d;
 
-			// B-spline cubic interpolation
-			double kVolume=freqvol_Z*volumePaddedSize;
-			double iVolume=freqvol_Y*volumePaddedSize;
-			double jVolume=freqvol_X*volumePaddedSize;
+            if (BSplineDeg==0)
+            {
+                // 0 order interpolation
+                // Compute corresponding index in the volume
+                int kVolume=(int)round(freqvol_Z*volumePaddedSize);
+                int iVolume=(int)round(freqvol_Y*volumePaddedSize);
+                int jVolume=(int)round(freqvol_X*volumePaddedSize);
+                c = A3D_ELEM(VfourierRealCoefs,kVolume,iVolume,jVolume);
+                d = A3D_ELEM(VfourierImagCoefs,kVolume,iVolume,jVolume);
+            }
+            else if (BSplineDeg==1)
+            {
+                // B-spline linear interpolation
+                double kVolume=freqvol_Z*volumePaddedSize;
+                double iVolume=freqvol_Y*volumePaddedSize;
+                double jVolume=freqvol_X*volumePaddedSize;
+                c=VfourierRealCoefs.interpolatedElement3D(jVolume,iVolume,kVolume);
+                d=VfourierImagCoefs.interpolatedElement3D(jVolume,iVolume,kVolume);
+            }
+            else
+            {
+                // B-spline cubic interpolation
+                double kVolume=freqvol_Z*volumePaddedSize;
+                double iVolume=freqvol_Y*volumePaddedSize;
+                double jVolume=freqvol_X*volumePaddedSize;
 
-			// Commented for speed-up, the corresponding code is below
-			// c=VfourierRealCoefs.interpolatedElementBSpline3D(jVolume,iVolume,kVolume);
-			// d=VfourierImagCoefs.interpolatedElementBSpline3D(jVolume,iVolume,kVolume);
+                // Commented for speed-up, the corresponding code is below
+                // c=VfourierRealCoefs.interpolatedElementBSpline3D(jVolume,iVolume,kVolume);
+                // d=VfourierImagCoefs.interpolatedElementBSpline3D(jVolume,iVolume,kVolume);
 
-			// The code below is a replicate for speed reasons of interpolatedElementBSpline3D
-			double z=kVolume;
-			double y=iVolume;
-			double x=jVolume;
+                // The code below is a replicate for speed reasons of interpolatedElementBSpline3D
+                double z=kVolume;
+                double y=iVolume;
+                double x=jVolume;
 
-			// Logical to physical
-			z -= STARTINGZ(VfourierRealCoefs);
-			y -= STARTINGY(VfourierRealCoefs);
-			x -= STARTINGX(VfourierRealCoefs);
+                // Logical to physical
+                z -= STARTINGZ(VfourierRealCoefs);
+                y -= STARTINGY(VfourierRealCoefs);
+                x -= STARTINGX(VfourierRealCoefs);
 
-			int l1 = (int)ceil(x - 2);
-			int l2 = l1 + 3;
+                int l1 = (int)ceil(x - 2);
+                int l2 = l1 + 3;
 
-			int m1 = (int)ceil(y - 2);
-			int m2 = m1 + 3;
+                int m1 = (int)ceil(y - 2);
+                int m2 = m1 + 3;
 
-			int n1 = (int)ceil(z - 2);
-			int n2 = n1 + 3;
+                int n1 = (int)ceil(z - 2);
+                int n2 = n1 + 3;
 
-			c = d = 0.0;
-			double aux;
-			for (int nn = n1; nn <= n2; nn++)
-			{
-				int equivalent_nn=nn;
-				if      (nn<0)
-					equivalent_nn=-nn-1;
-				else if (nn>=Zdim)
-					equivalent_nn=2*Zdim-nn-1;
-				double yxsumRe = 0.0, yxsumIm = 0.0;
-				for (int m = m1; m <= m2; m++)
-				{
-					int equivalent_m=m;
-					if      (m<0)
-						equivalent_m=-m-1;
-					else if (m>=Ydim)
-						equivalent_m=2*Ydim-m-1;
-					double xsumRe = 0.0, xsumIm = 0.0;
-					for (int l = l1; l <= l2; l++)
-					{
-						double xminusl = x - (double) l;
-						int equivalent_l=l;
-						if      (l<0)
-							equivalent_l=-l-1;
-						else if (l>=Xdim)
-							equivalent_l=2*Xdim-l-1;
-						double CoeffRe = (double) DIRECT_A3D_ELEM(VfourierRealCoefs,equivalent_nn,equivalent_m,equivalent_l);
-						double CoeffIm = (double) DIRECT_A3D_ELEM(VfourierImagCoefs,equivalent_nn,equivalent_m,equivalent_l);
-						BSPLINE03(aux,xminusl);
-						xsumRe += CoeffRe * aux;
-						xsumIm += CoeffIm * aux;
-					}
+                c = d = 0.0;
+                double aux;
+                for (int nn = n1; nn <= n2; nn++)
+                {
+                    int equivalent_nn=nn;
+                    if      (nn<0)
+                        equivalent_nn=-nn-1;
+                    else if (nn>=Zdim)
+                        equivalent_nn=2*Zdim-nn-1;
+                    double yxsumRe = 0.0, yxsumIm = 0.0;
+                    for (int m = m1; m <= m2; m++)
+                    {
+                        int equivalent_m=m;
+                        if      (m<0)
+                            equivalent_m=-m-1;
+                        else if (m>=Ydim)
+                            equivalent_m=2*Ydim-m-1;
+                        double xsumRe = 0.0, xsumIm = 0.0;
+                        for (int l = l1; l <= l2; l++)
+                        {
+                            double xminusl = x - (double) l;
+                            int equivalent_l=l;
+                            if      (l<0)
+                                equivalent_l=-l-1;
+                            else if (l>=Xdim)
+                                equivalent_l=2*Xdim-l-1;
+                            double CoeffRe = (double) DIRECT_A3D_ELEM(VfourierRealCoefs,equivalent_nn,equivalent_m,equivalent_l);
+                            double CoeffIm = (double) DIRECT_A3D_ELEM(VfourierImagCoefs,equivalent_nn,equivalent_m,equivalent_l);
+                            BSPLINE03(aux,xminusl);
+                            xsumRe += CoeffRe * aux;
+                            xsumIm += CoeffIm * aux;
+                        }
 
-					double yminusm = y - (double) m;
-					BSPLINE03(aux,yminusm);
-					yxsumRe += xsumRe * aux;
-					yxsumIm += xsumIm * aux;
-				}
+                        double yminusm = y - (double) m;
+                        BSPLINE03(aux,yminusm);
+						yxsumRe += xsumRe * aux;
+						yxsumIm += xsumIm * aux;
+                    }
 
-				double zminusn = z - (double) nn;
-				BSPLINE03(aux,zminusn);
-				c += yxsumRe * aux;
-				d += yxsumIm * aux;
-			}
+                    double zminusn = z - (double) nn;
+                    BSPLINE03(aux,zminusn);
+					c += yxsumRe * aux;
+					d += yxsumIm * aux;
+                }
+            }
 
             // Phase shift to move the origin of the image to the corner
             double a=DIRECT_A2D_ELEM(phaseShiftImgA,i,j);
@@ -201,13 +225,13 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
             double imDiff = imTh-imExp;
             retval+=reDiff*reDiff+imDiff*imDiff;
 #ifdef DEBUG
-            DIRECT_A2D_ELEM(projectionFourier,i,j)=std::complex<double>(reExp,imExp);
+            DIRECT_A2D_ELEM(projectionFourier,i,j)=std::complex<double>(reTh,imTh);
 #endif
         }
     }
 #ifdef DEBUG
     transformer2D.inverseFourierTransform();
-    projection.write("PPPexp.xmp");
+    projection.write("PPPth.xmp");
     std::cout << "Press any key" << std::endl;
     char ch; std::cin >> ch;
 #endif
@@ -239,24 +263,31 @@ void FourierComparator::produceSideInfo()
     Vpadded.clear();
 
     // Compute Bspline coefficients
-	MultidimArray< double > VfourierRealAux, VfourierImagAux;
-	Complex2RealImag(Vfourier, VfourierRealAux, VfourierImagAux);
-	Vfourier.clear();
-	produceSplineCoefficients(BSPLINE3,VfourierRealCoefs,VfourierRealAux);
+    if (BSplineDeg==3)
+    {
+        MultidimArray< double > VfourierRealAux, VfourierImagAux;
+        Complex2RealImag(Vfourier, VfourierRealAux, VfourierImagAux);
+        Vfourier.clear();
+        produceSplineCoefficients(BSPLINE3,VfourierRealCoefs,VfourierRealAux);
 
-	// Release memory as soon as you can
-	VfourierRealAux.clear();
+        // Release memory as soon as you can
+        VfourierRealAux.clear();
 
-	// Remove all those coefficients we are sure we will not use during the projections
-	volumePaddedSize=XSIZE(VfourierRealCoefs);
-	int idxMax=maxFrequency*XSIZE(VfourierRealCoefs)+10; // +10 is a safety guard
-	idxMax=std::min(FINISHINGX(VfourierRealCoefs),idxMax);
-	int idxMin=std::max(-idxMax,STARTINGX(VfourierRealCoefs));
-	VfourierRealCoefs.selfWindow(idxMin,idxMin,idxMin,idxMax,idxMax,idxMax);
+        // Remove all those coefficients we are sure we will not use during the projections
+        volumePaddedSize=XSIZE(VfourierRealCoefs);
+        int idxMax=maxFrequency*XSIZE(VfourierRealCoefs)+10; // +10 is a safety guard
+        idxMax=std::min(FINISHINGX(VfourierRealCoefs),idxMax);
+        int idxMin=std::max(-idxMax,STARTINGX(VfourierRealCoefs));
+        VfourierRealCoefs.selfWindow(idxMin,idxMin,idxMin,idxMax,idxMax,idxMax);
 
-	produceSplineCoefficients(BSPLINE3,VfourierImagCoefs,VfourierImagAux);
-	VfourierImagAux.clear();
-	VfourierImagCoefs.selfWindow(idxMin,idxMin,idxMin,idxMax,idxMax,idxMax);
+        produceSplineCoefficients(BSPLINE3,VfourierImagCoefs,VfourierImagAux);
+        VfourierImagAux.clear();
+        VfourierImagCoefs.selfWindow(idxMin,idxMin,idxMin,idxMax,idxMax,idxMax);
+    }
+    else {
+        Complex2RealImag(Vfourier, VfourierRealCoefs, VfourierImagCoefs);
+        volumePaddedSize=XSIZE(VfourierRealCoefs);
+    }
 
     produceSideInfoProjection();
 }
