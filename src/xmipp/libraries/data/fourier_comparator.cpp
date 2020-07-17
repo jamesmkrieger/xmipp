@@ -55,10 +55,28 @@ void FourierComparator::setEuler(double rot, double tilt, double psi)
     Euler_angles2matrix(rot,tilt,psi,E);
 }
 
+void FourierComparator::preparePhasePlane(double shiftx, double shifty, MultidimArray< std::complex<double> > &phase)
+{
+	phase.resizeNoCopy(wIdx);
+    for (size_t i=0; i<YSIZE(wIdx); ++i)
+    {
+        double yyshifti = -2 * PI * shifty / volumeSize * i;
+        for (size_t j=0; j<XSIZE(wIdx); ++j)
+        {
+            double xxshift = -2 * PI * shiftx / volumeSize;
+
+            double a,b;
+            sincos(xxshift*j+yyshifti,&b,&a);
+			DIRECT_A2D_ELEM(phase,i,j) = std::complex<double>(a,b);
+        }
+    }
+}
+
 //#define DEBUG
 double FourierComparator::compare(const MultidimArray< std::complex<double> > &Iexp,
-		                        double shiftx, double shifty, int idx0, int idxF,
-								const MultidimArray<double> *ctf)
+		                          int idx0, int idxF,
+								  const MultidimArray< std::complex<double> > *phaseShift,
+								  const MultidimArray<double> *ctf)
 {
 	if (idx0>maxIdx)
 		return 0.0;
@@ -81,7 +99,6 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
         double freqYvol_X=MAT_ELEM(E,1,0)*freqy;
         double freqYvol_Y=MAT_ELEM(E,1,1)*freqy;
         double freqYvol_Z=MAT_ELEM(E,1,2)*freqy;
-        double yyshifti = -2 * PI * shifty / volumeSize * i;
         for (size_t j=0; j<idxFF; ++j)
         {
         	int idxij = DIRECT_A2D_ELEM(wIdx,i,j);
@@ -96,7 +113,6 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
             double freqvol_Y=freqYvol_Y+MAT_ELEM(E,0,1)*freqx;
             double freqvol_Z=freqYvol_Z+MAT_ELEM(E,0,2)*freqx;
 
-            double xxshift = -2 * PI * shiftx / volumeSize;
             double c,d;
 
             if (BSplineDeg==0)
@@ -211,27 +227,40 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
             double reTh = ac - bd;
             double imTh = ab_cd - ac - bd;
 
-            double *ptrI_ij=(double *)&DIRECT_A2D_ELEM(Iexp,i,j);
-            c = *ptrI_ij;
-            d = *(ptrI_ij+1);
-            sincos(xxshift*j+yyshifti,&b,&a);
-            ac = a * c;
-            bd = b * d;
-            ab_cd = (a + b) * (c + d);
-            double reExp = ac - bd;
-            double imExp = ab_cd - ac - bd;
+			double *ptrI_ij=(double *)&DIRECT_A2D_ELEM(Iexp,i,j);
+            double reExp, imExp;
+            if (phaseShift!=NULL)
+            {
+				c = *ptrI_ij;
+				d = *(ptrI_ij+1);
+
+				double *ptrPhase_ij=(double *)&DIRECT_A2D_ELEM(*phaseShift,i,j);
+				a=*ptrPhase_ij;
+				b=*(ptrPhase_ij+1);
+				ac = a * c;
+				bd = b * d;
+				ab_cd = (a + b) * (c + d);
+				reExp = ac - bd;
+				imExp = ab_cd - ac - bd;
+            }
+            else
+            {
+				reExp = *ptrI_ij;
+				imExp = *(ptrI_ij+1);
+            }
 
             double reDiff = reTh-reExp;
             double imDiff = imTh-imExp;
             retval+=reDiff*reDiff+imDiff*imDiff;
 #ifdef DEBUG
-            DIRECT_A2D_ELEM(projectionFourier,i,j)=std::complex<double>(reTh,imTh);
+            DIRECT_A2D_ELEM(projectionFourier,i,j)=std::complex<double>(reExp,imExp);
 #endif
         }
     }
 #ifdef DEBUG
     transformer2D.inverseFourierTransform();
-    projection.write("PPPth.xmp");
+//    projection.write("PPPth.xmp");
+    projection.write("PPPExp.xmp");
     std::cout << "Press any key" << std::endl;
     char ch; std::cin >> ch;
 #endif

@@ -91,11 +91,16 @@ public:
 	/** Set Euler matrix */
     void setEuler(double rot, double tilt, double psi);
 
+    /** Prepare phase plane for a shift */
+    void preparePhasePlane(double shiftx, double shifty, MultidimArray< std::complex<double> > &phase);
+
     /**
      * Compare
      */
-    double compare(const MultidimArray< std::complex<double> > &Iexp, double shiftx, double shifty,
-    		       int idx0, int idxF, const MultidimArray<double> *ctf=NULL);
+    double compare(const MultidimArray< std::complex<double> > &Iexp,
+    		       int idx0, int idxF,
+                   const MultidimArray< std::complex<double> > *phaseShift=NULL,
+				   const MultidimArray<double> *ctf=NULL);
 
     /** Update volume */
     void updateVolume(MultidimArray<double> &V);

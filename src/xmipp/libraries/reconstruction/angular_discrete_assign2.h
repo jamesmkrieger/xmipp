@@ -103,6 +103,9 @@ public:
     // Fourier transform of I
     MultidimArray< std::complex<double> > FI;
 
+    // Shift phase planes
+    std::vector< MultidimArray<std::complex<double> >* > shiftPhase;
+
 public:
     /// Empty constructor
     ProgAngularDiscreteAssign2();

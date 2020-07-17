@@ -32,7 +32,7 @@
 ProgAngularDiscreteAssign2::ProgAngularDiscreteAssign2()
 {
     produces_a_metadata = true;
-    each_image_produces_an_output = true;
+    each_image_produces_an_output = false;
     comparator = NULL;
     ctfImage = NULL;
     rank = 0;
@@ -42,6 +42,8 @@ ProgAngularDiscreteAssign2::~ProgAngularDiscreteAssign2()
 {
 	delete comparator;
 	delete ctfImage;
+	for (size_t i=0; i<shiftPhase.size(); i++)
+		delete shiftPhase[i];
 }
 
 // Read arguments ==========================================================
@@ -100,7 +102,7 @@ void ProgAngularDiscreteAssign2::defineParams()
     addParamsLine("  [--max_resolution <f=4>]     : Maximum resolution (A)");
     addParamsLine("  [--sampling <Ts=1>]          : Sampling rate (A/pixel)");
     addParamsLine("  [--Rmax <R=-1>]              : Maximum radius (px). -1=Half of volume size");
-    addParamsLine("  [--padding <p=2>]            : Padding factor");
+    addParamsLine("  [--padding <p=1>]            : Padding factor");
     addParamsLine("  [--ignoreCTF]                : Ignore CTF");
     addParamsLine("  [--phaseFlipped]             : Input images have been phase flipped");
     addParamsLine("  [--sym <sym_file=c1>]        : It is used for computing the asymmetric unit");
@@ -167,6 +169,19 @@ void ProgAngularDiscreteAssign2::preProcess()
     	comparator = new FourierComparator(V(),pad,Ts/maxResol,NEAREST); // BSPLINE3, LINEAR
     else
     	comparator = new FourierComparator(pad,Ts/maxResol,NEAREST);
+
+    // Precompute phase planes
+	for (size_t nsy=0; nsy<shiftList.size(); ++nsy)
+	{
+		double sy=shiftList[nsy];
+		for (size_t nsx=0; nsx<shiftList.size(); ++nsx)
+		{
+			double sx=shiftList[nsx];
+			MultidimArray< std::complex<double> > *phasePlane=new MultidimArray< std::complex<double> >();
+			comparator->preparePhasePlane(sx, sy, *phasePlane);
+			shiftPhase.push_back(phasePlane);
+		}
+	}
 }
 
 void ProgAngularDiscreteAssign2::updateCTFImage(double defocusU, double defocusV, double angle)
@@ -201,7 +216,7 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 
 	double bestRot, bestTilt, bestPsi, bestSx, bestSy;
 	double bestL2=1e38;
-	size_t bestIdx=0;
+	size_t bestIdx=0, bestIdxPhase=0;
 //	std::cout << "New range " << idx0 << " " << idxF << std::endl;
 
 	for (size_t nrt=0; nrt<NRotTilt; ++nrt)
@@ -214,18 +229,19 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 			double psi=psiList[npsi];
 			comparator->setEuler(rot,tilt,psi);
 			size_t irtp = irt+npsi*Nshift2;
+			size_t idxPhasePlane=0;
 			for (size_t nsy=0; nsy<Nshift; ++nsy)
 			{
 				double sy=shiftList[nsy];
 				size_t irtpy = irtp+nsy*Nshift;
-				for (size_t nsx=0; nsx<Nshift; ++nsx)
+				for (size_t nsx=0; nsx<Nshift; ++nsx, ++idxPhasePlane)
 				{
 					size_t irtpxy = irtpy+nsx;
 					if (DIRECT_MULTIDIM_ELEM(currentL2,irtpxy)>=0 && !DIRECT_MULTIDIM_ELEM(fullL2,irtpxy))
 					{
 						double sx=shiftList[nsx];
-						double newL2=comparator->compare(FIexp,sx,sy,idx0,idxF,ctfImage);
-//						double newL2=comparator->compare(FIexp,sx,sy,0,100,ctfImage);
+						double newL2=comparator->compare(FIexp,idx0,idxF,shiftPhase[idxPhasePlane],ctfImage);
+//						double newL2=comparator->compare(FIexp,0,100,shiftPhase[idxPhasePlane],ctfImage);
 						DIRECT_MULTIDIM_ELEM(currentL2,irtpxy)+=newL2;
 						if (DIRECT_MULTIDIM_ELEM(currentL2,irtpxy)<bestL2)
 						{
@@ -235,6 +251,7 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 							bestSx=sx;
 							bestSy=sy;
 							bestIdx=irtpxy;
+							bestIdxPhase=idxPhasePlane;
 							bestL2=DIRECT_MULTIDIM_ELEM(currentL2,irtpxy);
 //							std::cout << rot << " " << tilt << " " << psi << " " << sy << " " << sx << " -> " << bestL2 << std::endl;
 						}
@@ -246,7 +263,7 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 
 	// Evaluate full
 	comparator->setEuler(bestRot,bestTilt,bestPsi);
-	DIRECT_MULTIDIM_ELEM(currentL2,bestIdx)=comparator->compare(FIexp,bestSx,bestSy,3,comparator->maxIdx,ctfImage);
+	DIRECT_MULTIDIM_ELEM(currentL2,bestIdx)=comparator->compare(FIexp,3,comparator->maxIdx,shiftPhase[bestIdxPhase],ctfImage);
 	DIRECT_MULTIDIM_ELEM(fullL2,bestIdx)=1;
 //	std::cout << "Full evaluation of best " << DIRECT_MULTIDIM_ELEM(currentL2,bestIdx) << std::endl;
 	bestL2 = DIRECT_MULTIDIM_ELEM(currentL2,bestIdx);
