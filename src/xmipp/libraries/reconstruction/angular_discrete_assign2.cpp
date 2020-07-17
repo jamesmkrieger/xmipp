@@ -164,9 +164,9 @@ void ProgAngularDiscreteAssign2::preProcess()
 
     // Construct comparator
     if (rank==0)
-    	comparator = new FourierComparator(V(),pad,Ts/maxResol);
+    	comparator = new FourierComparator(V(),pad,Ts/maxResol,NEAREST); // BSPLINE3, LINEAR
     else
-    	comparator = new FourierComparator(pad,Ts/maxResol);
+    	comparator = new FourierComparator(pad,Ts/maxResol,NEAREST);
 }
 
 void ProgAngularDiscreteAssign2::updateCTFImage(double defocusU, double defocusV, double angle)
@@ -202,7 +202,7 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 	double bestRot, bestTilt, bestPsi, bestSx, bestSy;
 	double bestL2=1e38;
 	size_t bestIdx=0;
-	std::cout << "New range " << idx0 << " " << idxF << std::endl;
+//	std::cout << "New range " << idx0 << " " << idxF << std::endl;
 
 	for (size_t nrt=0; nrt<NRotTilt; ++nrt)
 	{
@@ -236,7 +236,7 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 							bestSy=sy;
 							bestIdx=irtpxy;
 							bestL2=DIRECT_MULTIDIM_ELEM(currentL2,irtpxy);
-							std::cout << rot << " " << tilt << " " << psi << " " << sy << " " << sx << " -> " << bestL2 << std::endl;
+//							std::cout << rot << " " << tilt << " " << psi << " " << sy << " " << sx << " -> " << bestL2 << std::endl;
 						}
 					}
 				}
@@ -248,7 +248,7 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 	comparator->setEuler(bestRot,bestTilt,bestPsi);
 	DIRECT_MULTIDIM_ELEM(currentL2,bestIdx)=comparator->compare(FIexp,bestSx,bestSy,3,comparator->maxIdx,ctfImage);
 	DIRECT_MULTIDIM_ELEM(fullL2,bestIdx)=1;
-	std::cout << "Full evaluation of best " << DIRECT_MULTIDIM_ELEM(currentL2,bestIdx) << std::endl;
+//	std::cout << "Full evaluation of best " << DIRECT_MULTIDIM_ELEM(currentL2,bestIdx) << std::endl;
 	bestL2 = DIRECT_MULTIDIM_ELEM(currentL2,bestIdx);
 
 	// Remove larger items from the list of candidates
