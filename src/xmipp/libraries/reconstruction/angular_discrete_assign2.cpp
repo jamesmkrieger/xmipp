@@ -217,7 +217,8 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 	double bestRot, bestTilt, bestPsi, bestSx, bestSy;
 	double bestL2=1e38;
 	size_t bestIdx=0, bestIdxPhase=0;
-//	std::cout << "New range " << idx0 << " " << idxF << std::endl;
+	//std::cout << "New range " << idx0 << " " << idxF << std::endl;
+	comparator->prepareForIdx(idx0,idxF);
 
 	for (size_t nrt=0; nrt<NRotTilt; ++nrt)
 	{
@@ -240,8 +241,7 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 					if (DIRECT_MULTIDIM_ELEM(currentL2,irtpxy)>=0 && !DIRECT_MULTIDIM_ELEM(fullL2,irtpxy))
 					{
 						double sx=shiftList[nsx];
-						double newL2=comparator->compare(FIexp,idx0,idxF,shiftPhase[idxPhasePlane],ctfImage);
-//						double newL2=comparator->compare(FIexp,0,100,shiftPhase[idxPhasePlane],ctfImage);
+						double newL2=comparator->compare(FIexp,shiftPhase[idxPhasePlane],ctfImage);
 						DIRECT_MULTIDIM_ELEM(currentL2,irtpxy)+=newL2;
 						if (DIRECT_MULTIDIM_ELEM(currentL2,irtpxy)<bestL2)
 						{
@@ -253,7 +253,7 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 							bestIdx=irtpxy;
 							bestIdxPhase=idxPhasePlane;
 							bestL2=DIRECT_MULTIDIM_ELEM(currentL2,irtpxy);
-//							std::cout << rot << " " << tilt << " " << psi << " " << sy << " " << sx << " -> " << bestL2 << std::endl;
+							//std::cout << rot << " " << tilt << " " << psi << " " << sy << " " << sx << " -> " << bestL2 << std::endl;
 						}
 					}
 				}
@@ -263,9 +263,10 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 
 	// Evaluate full
 	comparator->setEuler(bestRot,bestTilt,bestPsi);
-	DIRECT_MULTIDIM_ELEM(currentL2,bestIdx)=comparator->compare(FIexp,3,comparator->maxIdx,shiftPhase[bestIdxPhase],ctfImage);
+	comparator->prepareForIdx(3,comparator->maxIdx);
+	DIRECT_MULTIDIM_ELEM(currentL2,bestIdx)=comparator->compare(FIexp,shiftPhase[bestIdxPhase],ctfImage);
 	DIRECT_MULTIDIM_ELEM(fullL2,bestIdx)=1;
-//	std::cout << "Full evaluation of best " << DIRECT_MULTIDIM_ELEM(currentL2,bestIdx) << std::endl;
+	//std::cout << "Full evaluation of best " << DIRECT_MULTIDIM_ELEM(currentL2,bestIdx) << std::endl;
 	bestL2 = DIRECT_MULTIDIM_ELEM(currentL2,bestIdx);
 
 	// Remove larger items from the list of candidates

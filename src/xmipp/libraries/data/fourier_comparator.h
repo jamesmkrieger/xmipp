@@ -67,6 +67,8 @@ public:
     // Fourier index
     MultidimArray<int> wIdx;
     MultidimArray<double> wx, wy;
+    MultidimArray<int> wIdxXcount, wIdxYcount;
+    int idx0, idxF;
 
     // MaxIndex depending on maxFrequency
     int maxIdx;
@@ -94,11 +96,13 @@ public:
     /** Prepare phase plane for a shift */
     void preparePhasePlane(double shiftx, double shifty, MultidimArray< std::complex<double> > &phase);
 
+    /** Prepare phase plane for a shift */
+    void prepareForIdx(int idx0, int idxF);
+
     /**
      * Compare
      */
     double compare(const MultidimArray< std::complex<double> > &Iexp,
-    		       int idx0, int idxF,
                    const MultidimArray< std::complex<double> > *phaseShift=NULL,
 				   const MultidimArray<double> *ctf=NULL);
 

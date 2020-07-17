@@ -72,9 +72,31 @@ void FourierComparator::preparePhasePlane(double shiftx, double shifty, Multidim
     }
 }
 
+/** Prepare phase plane for a shift */
+void FourierComparator::prepareForIdx(int iidx0, int iidxF)
+{
+	idx0=iidx0;
+	idxF=iidxF;
+
+	wIdxYcount.initZeros(YSIZE(wIdx));
+	wIdxXcount.initZeros(XSIZE(wIdx));
+
+	int idxFF=std::min(idxF,maxIdx);
+    for (size_t i=0; i<YSIZE(wIdx); ++i)
+    {
+        for (size_t j=0; j<idxFF; ++j)
+        {
+        	int idxij = DIRECT_A2D_ELEM(wIdx,i,j);
+        	if (idxij<idx0 || idxij>idxFF)
+        		continue;
+        	DIRECT_A1D_ELEM(wIdxYcount,i)++;
+        	DIRECT_A1D_ELEM(wIdxXcount,j)++;
+        }
+    }
+}
+
 //#define DEBUG
 double FourierComparator::compare(const MultidimArray< std::complex<double> > &Iexp,
-		                          int idx0, int idxF,
 								  const MultidimArray< std::complex<double> > *phaseShift,
 								  const MultidimArray<double> *ctf)
 {
@@ -93,6 +115,9 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
     double retval = 0.0;
     for (size_t i=0; i<YSIZE(wIdx); ++i)
     {
+    	if (DIRECT_A1D_ELEM(wIdxYcount,i)==0)
+    		continue;
+
     	double freqy = DIRECT_A1D_ELEM(wy,i);
 
         double freqYvol_X=MAT_ELEM(E,1,0)*freqy;
@@ -102,6 +127,9 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
         {
         	int idxij = DIRECT_A2D_ELEM(wIdx,i,j);
         	if (idxij<idx0 || idxij>idxFF)
+        		continue;
+
+        	if (DIRECT_A1D_ELEM(wIdxXcount,j)==0)
         		continue;
 
             // The frequency of pairs (i,j) in 2D
