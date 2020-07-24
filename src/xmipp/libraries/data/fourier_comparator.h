@@ -50,7 +50,10 @@ public:
     MultidimArray<double> *volume;
 
     // Real and imaginary B-spline coefficients for Fourier of the volume
-    MultidimArray< double > VfourierRealCoefs, VfourierImagCoefs;
+    MultidimArray<double> VfourierRealCoefs, VfourierImagCoefs;
+
+    // For the Mahalanobis distance
+    MultidimArray<double> VreSum, VimSum, VreSum2, VimSum2, VreimSum, VN;
 
     // Phase shift image
     MultidimArray<double> phaseShiftImgB, phaseShiftImgA;
@@ -79,6 +82,12 @@ public:
     // Projection in Fourier space
     MultidimArray< std::complex<double> > projectionFourier;
 
+    // Shifted experimental image
+    MultidimArray< std::complex<double> > shiftedExpFourier;
+
+    // Shifted experimental image
+    MultidimArray<double> weightFourier;
+
     // Projection
     Image<double> projection;
 public:
@@ -104,7 +113,8 @@ public:
      */
     double compare(const MultidimArray< std::complex<double> > &Iexp,
                    const MultidimArray< std::complex<double> > *phaseShift=NULL,
-				   const MultidimArray<double> *ctf=NULL);
+				   const MultidimArray<double> *ctf=NULL,
+				   bool keepImages=false);
 
     /** Update volume */
     void updateVolume(MultidimArray<double> &V);

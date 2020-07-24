@@ -64,8 +64,17 @@ public:
     bool ignoreCTF;
     // Phase Flipped
     bool phaseFlipped;
+    // Save reprojection
+    bool saveReprojection;
 public:
-    // Rank (used for MPI version)
+    // Best alignment
+	double bestRot, bestTilt, bestPsi, bestSx, bestSy;
+	// Best phase plane
+	size_t bestIdxPhase;
+	// Auxiliary variable for composing output names
+	FileName fnWeight, fnMask, fnReprojection;
+
+	// Rank (used for MPI version)
     int rank;
 
     // 2D mask in real space
@@ -78,6 +87,14 @@ public:
     size_t Xdim;
     // Input image
 	Image<double> I;
+    // Projection image
+	Image<double> P;
+    // Weight in Fourier
+	Image<double> wFI;
+	// Mask
+	MultidimArray<int> maskbg;
+	// Dampening mask
+	Image<double> maskDampen;
 	// Has CTF
 	bool hasCTF;
 	// CTF
@@ -96,6 +113,9 @@ public:
     MultidimArray<double> currentL2;
     // Distance is full
     MultidimArray<unsigned char> fullL2;
+
+    // Std sum
+    double stdSum, stdN;
 
     // Transformer
     FourierTransformer transformer2D;
@@ -122,12 +142,15 @@ public:
     /// Define parameters
     void defineParams();
 
-    /** Produce side info.
+    /** Produce side info. All ranks.
         An exception is thrown if any of the files is not found*/
     void preProcess();
 
 	/** Evaluate image between indexes [idx0, idxF) */
     void evaluateImage(const MultidimArray< std::complex<double> > &FIexp, int idx0, int idxF);
+
+    /** Evaluate residuals */
+    void evaluateResiduals(const MultidimArray< std::complex<double> > &FIexp);
 
     /** Predict angles and shift.
         At the input the pose parameters must have an initial guess of the

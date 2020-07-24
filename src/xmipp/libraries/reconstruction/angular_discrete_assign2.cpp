@@ -32,7 +32,9 @@
 ProgAngularDiscreteAssign2::ProgAngularDiscreteAssign2()
 {
     produces_a_metadata = true;
-    each_image_produces_an_output = false;
+    each_image_produces_an_output = true;
+    produces_an_output = true;
+    output_is_stack = true;
     comparator = NULL;
     ctfImage = NULL;
     rank = 0;
@@ -63,6 +65,7 @@ void ProgAngularDiscreteAssign2::readParams()
     pad = getIntParam("--padding");
     ignoreCTF = checkParam("--ignoreCTF");
     phaseFlipped = checkParam("--phaseFlipped");
+    saveReprojection = checkParam("--saveReprojection");
 }
 
 // Show ====================================================================
@@ -85,6 +88,7 @@ void ProgAngularDiscreteAssign2::show()
     << "Padding factor:      " << pad                << std::endl
     << "Ignore CTF:          " << ignoreCTF          << std::endl
     << "Phase flipped:       " << phaseFlipped       << std::endl
+	<< "Save reprojection:   " << saveReprojection   << std::endl
     ;
 }
 
@@ -105,6 +109,7 @@ void ProgAngularDiscreteAssign2::defineParams()
     addParamsLine("  [--padding <p=1>]            : Padding factor");
     addParamsLine("  [--ignoreCTF]                : Ignore CTF");
     addParamsLine("  [--phaseFlipped]             : Input images have been phase flipped");
+    addParamsLine("  [--saveReprojection]         : Save reprojections");
     addParamsLine("  [--sym <sym_file=c1>]        : It is used for computing the asymmetric unit");
     addExampleLine("A typical use is:",false);
     addExampleLine("xmipp_angular_discrete_assign2 -i images.xmd --ref reference.vol -o assigned_angles.xmd");
@@ -137,13 +142,15 @@ void ProgAngularDiscreteAssign2::preProcess()
     mask.generate_mask(Xdim,Xdim);
     mask2D=mask.get_binary_mask();
     iMask2Dsum=1.0/mask2D.sum();
+    maskbg.initZeros(mask2D);
+    stdSum=stdN=0;
 
     // Get the list of rot, tilt, psi and shift
     SymList SL;
     if (fnSym != "")
         SL.readSymmetryFile(fnSym);
     std::vector<double> rotListAux, tiltListAux;
-    make_even_distribution(rotListAux, tiltListAux, angStep, SL, false);
+    make_even_distribution(rotListAux, tiltListAux, angStep, SL, true);
     size_t Nrl=rotListAux.size();
     for (size_t n=0; n<Nrl; ++n)
     {
@@ -182,6 +189,20 @@ void ProgAngularDiscreteAssign2::preProcess()
 			shiftPhase.push_back(phasePlane);
 		}
 	}
+
+	// Create output files
+	if (rank==0)
+	{
+		fnMask = fn_out.removeAllExtensions()+"_mask.stk";
+		fnWeight = fn_out.removeAllExtensions()+"_fourierMask.stk";
+		createEmptyFile(fnWeight, XSIZE(comparator->weightFourier), YSIZE(comparator->weightFourier), 1, mdInSize, true, WRITE_OVERWRITE);
+		createEmptyFile(fnMask, Xdim, Xdim, 1, mdInSize, true, WRITE_OVERWRITE);
+		if (saveReprojection)
+		{
+			fnReprojection = fn_out.removeAllExtensions()+"_reprojections.stk";
+			createEmptyFile(fnReprojection, Xdim, Xdim, 1, mdInSize, true, WRITE_OVERWRITE);
+		}
+	}
 }
 
 void ProgAngularDiscreteAssign2::updateCTFImage(double defocusU, double defocusV, double angle)
@@ -214,9 +235,9 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 	size_t Nshift2=Nshift*Nshift;
 	size_t Nshift2Psi=Nshift2*NPsi;
 
-	double bestRot, bestTilt, bestPsi, bestSx, bestSy;
 	double bestL2=1e38;
-	size_t bestIdx=0, bestIdxPhase=0;
+	size_t bestIdx=0;
+	bestIdxPhase=0;
 	//std::cout << "New range " << idx0 << " " << idxF << std::endl;
 	comparator->prepareForIdx(idx0,idxF);
 
@@ -294,7 +315,38 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 	}
 }
 
-//#define DEBUG
+void ProgAngularDiscreteAssign2::evaluateResiduals(const MultidimArray< std::complex<double> > &FIexp)
+{
+	comparator->prepareForIdx(0,XSIZE(FIexp));
+	comparator->setEuler(bestRot,bestTilt,bestPsi);
+	comparator->compare(FI,shiftPhase[bestIdxPhase],ctfImage,true);
+
+	wFI()=comparator->weightFourier;
+	P()=comparator->projection();
+	const MultidimArray<double> &mP=P();
+	double th=mP.computeMax()/20;
+	maskbg.initZeros();
+	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(mP)
+	if (DIRECT_MULTIDIM_ELEM(mask2D,n)==0 || DIRECT_MULTIDIM_ELEM(mP,n)<th)
+		DIRECT_MULTIDIM_ELEM(maskbg,n)=1;
+	double avg, stddev;
+	I().computeAvgStdev_within_binary_mask(maskbg, avg, stddev);
+	stdSum+=stddev;
+	stdN+=1;
+
+	stddev=stdSum/stdN;
+	maskDampen().resizeNoCopy(maskbg);
+	maskDampen().initConstant(1.0);
+	const MultidimArray<double> &mD=maskDampen();
+	const MultidimArray<double> &mI=I();
+	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(mP)
+	if (DIRECT_MULTIDIM_ELEM(maskbg,n)==1 || DIRECT_MULTIDIM_ELEM(mask2D,n)==0)
+	{
+		double z=DIRECT_MULTIDIM_ELEM(mI,n)/stddev;
+		DIRECT_MULTIDIM_ELEM(mD,n)=exp(-0.5*z*z);
+	}
+}
+
 void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileName &fnImgOut, const MDRow &rowIn, MDRow &rowOut)
 {
     rowOut=rowIn;
@@ -330,6 +382,33 @@ void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileN
 		int idxStep=4;
 		for (int idx=3; idx<Xdim; idx+=idxStep)
 			evaluateImage(FI, idx,idx+idxStep);
+
+		rowOut.setValue(MDL_ANGLE_ROT,  bestRot);
+	    rowOut.setValue(MDL_ANGLE_TILT, bestTilt);
+	    rowOut.setValue(MDL_ANGLE_PSI,  bestPsi);
+	    rowOut.setValue(MDL_SHIFT_X,    bestSx);
+	    rowOut.setValue(MDL_SHIFT_Y,    bestSy);
+
+		evaluateResiduals(FI);
+
+		// Write Fourier mask
+		size_t idx=fnImgOut.getPrefixNumber();
+		FileName fn;
+		fn.compose(idx,fnWeight);
+		wFI.write(fn,0,true,WRITE_OVERWRITE);
+	    rowOut.setValue(MDL_IMAGE_MASK_FOURIER, fn);
+
+		fn.compose(idx,fnMask);
+		maskDampen.write(fn,0,true,WRITE_OVERWRITE);
+	    rowOut.setValue(MDL_IMAGE_MASK, fn);
+
+	    // Write reprojection
+	    if (saveReprojection)
+		{
+			fn.compose(idx,fnReprojection);
+			P.write(fn,0,true,WRITE_OVERWRITE);
+		    rowOut.setValue(MDL_IMAGE_REF, fn);
+		}
 	}
 	catch (XmippError XE)
 	{
@@ -337,65 +416,7 @@ void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileN
 		std::cerr << "Warning: Cannot refine " << fnImg << std::endl;
 		rowOut.setValue(MDL_ENABLED,-1);
 	}
-/*
-	rowOut.setValue(MDL_IMAGE_ORIGINAL, fnImg);
-    rowOut.setValue(MDL_IMAGE, fnImgOut);
-    rowOut.setValue(MDL_ANGLE_ROT,  old_rot+p(7));
-    rowOut.setValue(MDL_ANGLE_TILT, old_tilt+p(8));
-    rowOut.setValue(MDL_ANGLE_PSI,  old_psi+p(9));
-    rowOut.setValue(MDL_SHIFT_X,    0.);
-    rowOut.setValue(MDL_SHIFT_Y,    0.);
-    rowOut.setValue(MDL_FLIP,       false);
-    rowOut.setValue(MDL_COST,       cost);
-    if (optimizeGrayValues)
-    {
-		rowOut.setValue(MDL_CONTINUOUS_GRAY_A,p(0));
-		rowOut.setValue(MDL_CONTINUOUS_GRAY_B,p(1));
-    }
-    rowOut.setValue(MDL_CONTINUOUS_SCALE_X,p(4));
-    rowOut.setValue(MDL_CONTINUOUS_SCALE_Y,p(5));
-    rowOut.setValue(MDL_CONTINUOUS_SCALE_ANGLE,p(6));
-    rowOut.setValue(MDL_CONTINUOUS_X,p(2)+old_shiftX);
-    rowOut.setValue(MDL_CONTINUOUS_Y,p(3)+old_shiftY);
-    rowOut.setValue(MDL_CONTINUOUS_FLIP,old_flip);
-    if (hasCTF)
-    {
-    	rowOut.setValue(MDL_CTF_DEFOCUSU,old_defocusU+p(10));
-    	rowOut.setValue(MDL_CTF_DEFOCUSV,old_defocusV+p(11));
-    	rowOut.setValue(MDL_CTF_DEFOCUS_ANGLE,old_defocusAngle+p(12));
-    	if (old_defocusU+p(10)<0 || old_defocusU+p(11)<0)
-    		rowOut.setValue(MDL_ENABLED,-1);
-    }
-    //Saving correlation and imed values in the metadata
-    rowOut.setValue(MDL_CORRELATION_IDX, corrIdx);
-    rowOut.setValue(MDL_CORRELATION_MASK, corrMask);
-    rowOut.setValue(MDL_CORRELATION_WEIGHT, corrWeight);
-    rowOut.setValue(MDL_IMED, imedDist);
-*/
-
-#ifdef DEBUG
-    std::cout << "p=" << p << std::endl;
-    MetaData MDaux;
-    MDaux.addRow(rowOut);
-    MDaux.write("PPPmd.xmd");
-    Image<double> save;
-    save()=P();
-    save.write("PPPprojection.xmp");
-    save()=I();
-    save.write("PPPexperimental.xmp");
-    //save()=C;
-    //save.write("PPPC.xmp");
-    Ip.write("PPPexperimentalp.xmp");
-    Ifiltered.write("PPPexperimentalFiltered.xmp");
-    Ifilteredp.write("PPPexperimentalFilteredp.xmp");
-    E.write("PPPresidual.xmp");
-    std::cout << A << std::endl;
-    std::cout << fnImgOut << " rewritten\n";
-    std::cout << "Press any key" << std::endl;
-    char c; std::cin >> c;
-#endif
 }
-#undef DEBUG
 
 void ProgAngularDiscreteAssign2::postProcess()
 {
