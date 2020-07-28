@@ -120,17 +120,9 @@ void ProgAngularDiscreteAssign2::preProcess()
 {
     // Read the reference volume
 	Image<double> V;
-	if (rank==0)
-	{
-		V.read(fnVol);
-		V().setXmippOrigin();
-	    Xdim=XSIZE(V());
-	}
-	else
-	{
-		size_t ydim, zdim, ndim;
-		getImageSize(fnVol, Xdim, ydim, zdim, ndim);
-	}
+	V.read(fnVol);
+	V().setXmippOrigin();
+	Xdim=XSIZE(V());
 
     // Construct mask
     if (Rmax<0)
@@ -172,10 +164,7 @@ void ProgAngularDiscreteAssign2::preProcess()
     fullL2.initZeros(Ncandidates);
 
     // Construct comparator
-    if (rank==0)
-    	comparator = new FourierComparator(V(),pad,Ts/maxResol,NEAREST); // BSPLINE3, LINEAR
-    else
-    	comparator = new FourierComparator(pad,Ts/maxResol,NEAREST);
+    comparator = new FourierComparator(V(),pad,Ts/maxResol,NEAREST); // BSPLINE3, LINEAR
 
     // Precompute phase planes
 	for (size_t nsy=0; nsy<shiftList.size(); ++nsy)
@@ -191,17 +180,16 @@ void ProgAngularDiscreteAssign2::preProcess()
 	}
 
 	// Create output files
+	fnMask = fn_out.removeAllExtensions()+"_mask.stk";
+	fnWeight = fn_out.removeAllExtensions()+"_fourierMask.stk";
+	if (saveReprojection)
+		fnReprojection = fn_out.removeAllExtensions()+"_reprojections.stk";
 	if (rank==0)
 	{
-		fnMask = fn_out.removeAllExtensions()+"_mask.stk";
-		fnWeight = fn_out.removeAllExtensions()+"_fourierMask.stk";
 		createEmptyFile(fnWeight, XSIZE(comparator->weightFourier), YSIZE(comparator->weightFourier), 1, mdInSize, true, WRITE_OVERWRITE);
 		createEmptyFile(fnMask, Xdim, Xdim, 1, mdInSize, true, WRITE_OVERWRITE);
 		if (saveReprojection)
-		{
-			fnReprojection = fn_out.removeAllExtensions()+"_reprojections.stk";
 			createEmptyFile(fnReprojection, Xdim, Xdim, 1, mdInSize, true, WRITE_OVERWRITE);
-		}
 	}
 }
 
@@ -345,6 +333,7 @@ void ProgAngularDiscreteAssign2::evaluateResiduals(const MultidimArray< std::com
 		double z=DIRECT_MULTIDIM_ELEM(mI,n)/stddev;
 		DIRECT_MULTIDIM_ELEM(mD,n)=exp(-0.5*z*z);
 	}
+	maxCC=correlationIndex(P(),I(),&mask2D);
 }
 
 void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileName &fnImgOut, const MDRow &rowIn, MDRow &rowOut)
@@ -390,6 +379,7 @@ void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileN
 	    rowOut.setValue(MDL_SHIFT_Y,    bestSy);
 
 		evaluateResiduals(FI);
+	    rowOut.setValue(MDL_MAXCC,      maxCC);
 
 		// Write Fourier mask
 		size_t idx=fnImgOut.getPrefixNumber();

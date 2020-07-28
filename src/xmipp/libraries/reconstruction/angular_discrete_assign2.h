@@ -114,6 +114,9 @@ public:
     // Distance is full
     MultidimArray<unsigned char> fullL2;
 
+    // Cross correlation
+    double maxCC;
+
     // Std sum
     double stdSum, stdN;
 
