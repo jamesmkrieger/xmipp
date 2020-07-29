@@ -66,6 +66,7 @@ void ProgAngularDiscreteAssign2::readParams()
     ignoreCTF = checkParam("--ignoreCTF");
     phaseFlipped = checkParam("--phaseFlipped");
     saveReprojection = checkParam("--saveReprojection");
+    onlyEvaluate = checkParam("--onlyEvaluate");
 }
 
 // Show ====================================================================
@@ -89,6 +90,7 @@ void ProgAngularDiscreteAssign2::show()
     << "Ignore CTF:          " << ignoreCTF          << std::endl
     << "Phase flipped:       " << phaseFlipped       << std::endl
 	<< "Save reprojection:   " << saveReprojection   << std::endl
+	<< "Only evaluate:       " << onlyEvaluate       << std::endl
     ;
 }
 
@@ -111,6 +113,7 @@ void ProgAngularDiscreteAssign2::defineParams()
     addParamsLine("  [--phaseFlipped]             : Input images have been phase flipped");
     addParamsLine("  [--saveReprojection]         : Save reprojections");
     addParamsLine("  [--sym <sym_file=c1>]        : It is used for computing the asymmetric unit");
+    addParamsLine("  [--onlyEvaluate]             : Only evaluate, assumes that there are angles and shifts");
     addExampleLine("A typical use is:",false);
     addExampleLine("xmipp_angular_discrete_assign2 -i images.xmd --ref reference.vol -o assigned_angles.xmd");
 }
@@ -137,47 +140,58 @@ void ProgAngularDiscreteAssign2::preProcess()
     maskbg.initZeros(mask2D);
     stdSum=stdN=0;
 
-    // Get the list of rot, tilt, psi and shift
-    SymList SL;
-    if (fnSym != "")
-        SL.readSymmetryFile(fnSym);
-    std::vector<double> rotListAux, tiltListAux;
-    make_even_distribution(rotListAux, tiltListAux, angStep, SL, true);
-    size_t Nrl=rotListAux.size();
-    for (size_t n=0; n<Nrl; ++n)
+    if (!onlyEvaluate)
     {
-    	if (tiltListAux[n]>=minTilt && tiltListAux[n]<=maxTilt)
-    	{
-    		rotList.push_back(rotListAux[n]);
-    		tiltList.push_back(tiltListAux[n]);
-    	}
+		// Get the list of rot, tilt, psi and shift
+		SymList SL;
+		if (fnSym != "")
+			SL.readSymmetryFile(fnSym);
+		std::vector<double> rotListAux, tiltListAux;
+		make_even_distribution(rotListAux, tiltListAux, angStep, SL, true);
+		size_t Nrl=rotListAux.size();
+		for (size_t n=0; n<Nrl; ++n)
+		{
+			if (tiltListAux[n]>=minTilt && tiltListAux[n]<=maxTilt)
+			{
+				rotList.push_back(rotListAux[n]);
+				tiltList.push_back(tiltListAux[n]);
+			}
+		}
+
+		for (double shift=-maxShift; shift<=maxShift; shift+=shiftStep)
+			shiftList.push_back(shift);
+
+		for (double psi=0; psi<360; psi+=angStep)
+			psiList.push_back(psi);
+
+		Ncandidates = Nrl * psiList.size() * shiftList.size() * shiftList.size();
+		currentL2.initZeros(Ncandidates);
+		fullL2.initZeros(Ncandidates);
     }
-
-    for (double shift=-maxShift; shift<=maxShift; shift+=shiftStep)
-    	shiftList.push_back(shift);
-
-    for (double psi=0; psi<360; psi+=angStep)
-    	psiList.push_back(psi);
-
-    Ncandidates = Nrl * psiList.size() * shiftList.size() * shiftList.size();
-    currentL2.initZeros(Ncandidates);
-    fullL2.initZeros(Ncandidates);
 
     // Construct comparator
     comparator = new FourierComparator(V(),pad,Ts/maxResol,NEAREST); // BSPLINE3, LINEAR
 
     // Precompute phase planes
-	for (size_t nsy=0; nsy<shiftList.size(); ++nsy)
-	{
-		double sy=shiftList[nsy];
-		for (size_t nsx=0; nsx<shiftList.size(); ++nsx)
+    if (!onlyEvaluate)
+    {
+		for (size_t nsy=0; nsy<shiftList.size(); ++nsy)
 		{
-			double sx=shiftList[nsx];
-			MultidimArray< std::complex<double> > *phasePlane=new MultidimArray< std::complex<double> >();
-			comparator->preparePhasePlane(sx, sy, *phasePlane);
-			shiftPhase.push_back(phasePlane);
+			double sy=shiftList[nsy];
+			for (size_t nsx=0; nsx<shiftList.size(); ++nsx)
+			{
+				double sx=shiftList[nsx];
+				MultidimArray< std::complex<double> > *phasePlane=new MultidimArray< std::complex<double> >();
+				comparator->preparePhasePlane(sx, sy, *phasePlane);
+				shiftPhase.push_back(phasePlane);
+			}
 		}
-	}
+    }
+    else
+    {
+    	MultidimArray< std::complex<double> > *phasePlane=new MultidimArray< std::complex<double> >();
+    	shiftPhase.push_back(phasePlane);
+    }
 
 	// Create output files
 	fnMask = fn_out.removeAllExtensions()+"_mask.stk";
@@ -333,7 +347,7 @@ void ProgAngularDiscreteAssign2::evaluateResiduals(const MultidimArray< std::com
 		double z=DIRECT_MULTIDIM_ELEM(mI,n)/stddev;
 		DIRECT_MULTIDIM_ELEM(mD,n)=exp(-0.5*z*z);
 	}
-	maxCC=correlationIndex(P(),I(),&mask2D);
+	maxCC=correlationIndex(mP,mI,&mask2D);
 }
 
 void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileName &fnImgOut, const MDRow &rowIn, MDRow &rowOut)
@@ -362,22 +376,35 @@ void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileN
 		DIRECT_MULTIDIM_ELEM(mI,n)=0.0;
 
 	// Compute Fourier transform
-	transformer2D.FourierTransform(mI, FI, false);
+	transformer2D.FourierTransform(mI, FI, true);
 
 	try
 	{
-		currentL2.initZeros();
-		fullL2.initZeros();
-		int idxStep=4;
-		for (int idx=3; idx<Xdim; idx+=idxStep)
-			evaluateImage(FI, idx,idx+idxStep);
+		if (!onlyEvaluate)
+		{
+			currentL2.initZeros();
+			fullL2.initZeros();
+			int idxStep=4;
+			for (int idx=3; idx<Xdim; idx+=idxStep)
+				evaluateImage(FI, idx,idx+idxStep);
 
-		rowOut.setValue(MDL_ANGLE_ROT,  bestRot);
-	    rowOut.setValue(MDL_ANGLE_TILT, bestTilt);
-	    rowOut.setValue(MDL_ANGLE_PSI,  bestPsi);
-	    rowOut.setValue(MDL_SHIFT_X,    bestSx);
-	    rowOut.setValue(MDL_SHIFT_Y,    bestSy);
+			rowOut.setValue(MDL_ANGLE_ROT,  bestRot);
+			rowOut.setValue(MDL_ANGLE_TILT, bestTilt);
+			rowOut.setValue(MDL_ANGLE_PSI,  bestPsi);
+			rowOut.setValue(MDL_SHIFT_X,    bestSx);
+			rowOut.setValue(MDL_SHIFT_Y,    bestSy);
+		}
+		else
+		{
+			rowIn.getValue(MDL_ANGLE_ROT,  bestRot);
+			rowIn.getValue(MDL_ANGLE_TILT, bestTilt);
+			rowIn.getValue(MDL_ANGLE_PSI,  bestPsi);
+			rowIn.getValue(MDL_SHIFT_X,    bestSx);
+			rowIn.getValue(MDL_SHIFT_Y,    bestSy);
 
+			comparator->preparePhasePlane(bestSx, bestSy, *(shiftPhase[0]));
+			bestIdxPhase=0;
+		}
 		evaluateResiduals(FI);
 	    rowOut.setValue(MDL_MAXCC,      maxCC);
 

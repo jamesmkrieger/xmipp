@@ -66,6 +66,8 @@ public:
     bool phaseFlipped;
     // Save reprojection
     bool saveReprojection;
+    // Only evaluate
+    bool onlyEvaluate;
 public:
     // Best alignment
 	double bestRot, bestTilt, bestPsi, bestSx, bestSy;
