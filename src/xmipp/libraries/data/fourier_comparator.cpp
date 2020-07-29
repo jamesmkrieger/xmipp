@@ -328,9 +328,9 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
 						{
 							DIRECT_A2D_ELEM(weightFourier,i,j)=exp(-mahalanobisDistance*mahalanobisDistance/(2*0.94*1.5*0.94*1.5)); // 0.94 = sqrt(2+3*sqrt(2*p))/3 for p = 2
 																																	// 1.5 is a safety factor
-							std::cout << "N=" << A3D_ELEM(VN,kVolume,iVolume,jVolume) << " re=" << reExp << " im=" << imExp << " reMean=" << reMean << " imMean=" << imMean << std::endl
-									  << "   re2=" << reSigma2 << " im2=" << imSigma2 << " cov=" << reimCov << " i=" << i << " j=" << j << " dist=" << mahalanobisDistance
-									  << " weight=" << DIRECT_A2D_ELEM(weightFourier,i,j) << std::endl;
+//							std::cout << "N=" << A3D_ELEM(VN,kVolume,iVolume,jVolume) << " re=" << reExp << " im=" << imExp << " reMean=" << reMean << " imMean=" << imMean << std::endl
+//									  << "   re2=" << reSigma2 << " im2=" << imSigma2 << " cov=" << reimCov << " i=" << i << " j=" << j << " dist=" << mahalanobisDistance
+//									  << " weight=" << DIRECT_A2D_ELEM(weightFourier,i,j) << std::endl;
 						}
 					}
             	}
