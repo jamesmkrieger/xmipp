@@ -1042,7 +1042,7 @@ void rangeAdjust_within_mask(const MultidimArray< double >* mask,
 class ProgMask: public XmippMetadataProgram
 {
 public:
-
+    Image<double> imageMask;
     Mask         mask;
     FileName     fn_mask;
     int          create_mask;
@@ -1054,6 +1054,7 @@ public:
     std::string  str_subs_val;
     int          count;
     int          max_length;
+    bool         applyImageMask;
 
     void defineParams();
     void readParams();

@@ -1828,14 +1828,16 @@ void ProgMask::defineParams()
     addParamsLine("   [--count_above <th>]                : Voxels within mask >= th");
     addParamsLine("   [--count_below <th>]                : Voxels within mask <= th");
     addParamsLine("   [--substitute <val=\"0\">]  : Value outside the mask: userProvidedValue|min|max|avg");
-
+    addParamsLine("   [--apply_ImageMask]                 : Apply the column image_mask to image");
 }
 
 /* Read Parameters ----------------------------------------------------------------- */
 void ProgMask::readParams()
 {
     XmippMetadataProgram::readParams();
-    mask.readParams(this);
+    applyImageMask = checkParam("--apply_ImageMask");
+    if (!applyImageMask)
+	    mask.readParams(this);
 
     count_above  = checkParam("--count_above");
     if (count_above)
@@ -1876,73 +1878,85 @@ void ProgMask::processImage(const FileName &fnImg, const FileName &fnImgOut,
     image.readApplyGeo(fnImg, rowIn);
     image().setXmippOrigin();
 
-    // Generate mask
-    if (ZSIZE(image()) > 1)
-        apply_geo=false;
-    if (apply_geo)
+    if (!applyImageMask)
     {
-        if (mask.x0 + mask.y0 != 0.)
-            REPORT_ERROR(ERR_ARG_INCORRECT, "Mask: -center option cannot be combined with apply_geo; use -dont_apply_geo");
-        else
-            // Read geometric transformation from the image and store for mask
-            image.getTransformationMatrix(mask.mask_geo);
-    }
-    mask.generate_mask(image());
+		// Generate mask
+		if (ZSIZE(image()) > 1)
+			apply_geo=false;
+		if (apply_geo)
+		{
+			if (mask.x0 + mask.y0 != 0.)
+				REPORT_ERROR(ERR_ARG_INCORRECT, "Mask: -center option cannot be combined with apply_geo; use -dont_apply_geo");
+			else
+				// Read geometric transformation from the image and store for mask
+				image.getTransformationMatrix(mask.mask_geo);
+		}
+		mask.generate_mask(image());
 
-    // Apply mask
-    if (!create_mask)
-    {
-        if      (str_subs_val=="min")
-            subs_val=image().computeMin();
-        else if (str_subs_val=="max")
-            subs_val=image().computeMax();
-        else if (str_subs_val=="avg")
-            subs_val=image().computeAvg();
-        else
-            subs_val=textToFloat(str_subs_val);
+		// Apply mask
+		if (!create_mask)
+		{
+			if      (str_subs_val=="min")
+				subs_val=image().computeMin();
+			else if (str_subs_val=="max")
+				subs_val=image().computeMax();
+			else if (str_subs_val=="avg")
+				subs_val=image().computeAvg();
+			else
+				subs_val=textToFloat(str_subs_val);
 
-        mask.apply_mask(image(), image(), subs_val, apply_geo);
-        if (!count)
-            image.write(fnImgOut);
+			mask.apply_mask(image(), image(), subs_val, apply_geo);
+			if (!count)
+				image.write(fnImgOut);
+		}
+		else
+			mask.write_mask(fn_mask);
+
+		// Count
+		if (count)
+		{
+			if (mask.datatype() == INT_MASK)
+			{
+				int count=0;
+				std::string elem_type="pixels";
+				if (ZSIZE(image())>1)
+					elem_type="voxels";
+				if      (count_above && !count_below)
+				{
+					std::cout << stringToString(fn_in,max_length)
+					<< " number of " << elem_type << " above " << th_above;
+					count=count_with_mask_above(mask.get_binary_mask(),
+												image(),th_above);
+				}
+				else if (count_below && !count_above)
+				{
+					std::cout << stringToString(fn_in,max_length)
+					<< " number of " << elem_type << " below " << th_below;
+					count=count_with_mask_below(mask.get_binary_mask(),
+												image(),th_below);
+				}
+				else if (count_below && count_above)
+				{
+					std::cout << stringToString(fn_in,max_length)
+					<< " number of " << elem_type << " above " << th_above
+					<< " and below " << th_below << " = ";
+					count=count_with_mask_between(mask.get_binary_mask(),
+												  image(),th_above,th_below);
+				}
+				std::cout << " = " << count << std::endl;
+			}
+			else
+				std::cerr << "Cannot count pixels with a continuous mask\n";
+		}
     }
     else
-        mask.write_mask(fn_mask);
-
-    // Count
-    if (count)
     {
-        if (mask.datatype() == INT_MASK)
-        {
-            int count=0;
-            std::string elem_type="pixels";
-            if (ZSIZE(image())>1)
-                elem_type="voxels";
-            if      (count_above && !count_below)
-            {
-                std::cout << stringToString(fn_in,max_length)
-                << " number of " << elem_type << " above " << th_above;
-                count=count_with_mask_above(mask.get_binary_mask(),
-                                            image(),th_above);
-            }
-            else if (count_below && !count_above)
-            {
-                std::cout << stringToString(fn_in,max_length)
-                << " number of " << elem_type << " below " << th_below;
-                count=count_with_mask_below(mask.get_binary_mask(),
-                                            image(),th_below);
-            }
-            else if (count_below && count_above)
-            {
-                std::cout << stringToString(fn_in,max_length)
-                << " number of " << elem_type << " above " << th_above
-                << " and below " << th_below << " = ";
-                count=count_with_mask_between(mask.get_binary_mask(),
-                                              image(),th_above,th_below);
-            }
-            std::cout << " = " << count << std::endl;
-        }
-        else
-            std::cerr << "Cannot count pixels with a continuous mask\n";
+    	FileName fnMask;
+    	rowIn.getValue(MDL_IMAGE_MASK, fnMask);
+    	imageMask.read(fnMask);
+    	imageMask().setXmippOrigin();
+		image()*=imageMask();
+		image.write(fnImgOut);
     }
 
     if (imageCount % 25 == 0 && !count)
