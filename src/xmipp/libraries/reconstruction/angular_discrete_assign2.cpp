@@ -66,6 +66,7 @@ void ProgAngularDiscreteAssign2::readParams()
     ignoreCTF = checkParam("--ignoreCTF");
     phaseFlipped = checkParam("--phaseFlipped");
     saveReprojection = checkParam("--saveReprojection");
+    saveResiduals = checkParam("--saveResidual");
     onlyEvaluate = checkParam("--onlyEvaluate");
 }
 
@@ -90,6 +91,7 @@ void ProgAngularDiscreteAssign2::show()
     << "Ignore CTF:          " << ignoreCTF          << std::endl
     << "Phase flipped:       " << phaseFlipped       << std::endl
 	<< "Save reprojection:   " << saveReprojection   << std::endl
+	<< "Save residuals:      " << saveResiduals      << std::endl
 	<< "Only evaluate:       " << onlyEvaluate       << std::endl
     ;
 }
@@ -111,7 +113,8 @@ void ProgAngularDiscreteAssign2::defineParams()
     addParamsLine("  [--padding <p=1>]            : Padding factor");
     addParamsLine("  [--ignoreCTF]                : Ignore CTF");
     addParamsLine("  [--phaseFlipped]             : Input images have been phase flipped");
-    addParamsLine("  [--saveReprojection]         : Save reprojections");
+    addParamsLine("  [--saveReprojection]         : Save reprojection");
+    addParamsLine("  [--saveResidual]             : Save residual");
     addParamsLine("  [--sym <sym_file=c1>]        : It is used for computing the asymmetric unit");
     addParamsLine("  [--onlyEvaluate]             : Only evaluate, assumes that there are angles and shifts");
     addExampleLine("A typical use is:",false);
@@ -138,7 +141,8 @@ void ProgAngularDiscreteAssign2::preProcess()
     mask2D=mask.get_binary_mask();
     iMask2Dsum=1.0/mask2D.sum();
     maskbg.initZeros(mask2D);
-    stdSum=stdN=0;
+    stdBgSum=stdBgN=0;
+    stdFgSum=stdFgN=0;
 
     if (!onlyEvaluate)
     {
@@ -198,13 +202,20 @@ void ProgAngularDiscreteAssign2::preProcess()
 	fnWeight = fn_out.removeAllExtensions()+"_fourierMask.stk";
 	if (saveReprojection)
 		fnReprojection = fn_out.removeAllExtensions()+"_reprojections.stk";
+	if (saveResiduals)
+		fnResidual = fn_out.removeAllExtensions()+"_residuals.stk";
 	if (rank==0)
 	{
 		createEmptyFile(fnWeight, XSIZE(comparator->weightFourier), YSIZE(comparator->weightFourier), 1, mdInSize, true, WRITE_OVERWRITE);
 		createEmptyFile(fnMask, Xdim, Xdim, 1, mdInSize, true, WRITE_OVERWRITE);
 		if (saveReprojection)
 			createEmptyFile(fnReprojection, Xdim, Xdim, 1, mdInSize, true, WRITE_OVERWRITE);
+		if (saveResiduals)
+			createEmptyFile(fnResidual, Xdim, Xdim, 1, mdInSize, true, WRITE_OVERWRITE);
 	}
+    filter.FilterShape = REALGAUSSIAN;
+    filter.FilterBand = LOWPASS;
+    filter.w1 = 2;
 }
 
 void ProgAngularDiscreteAssign2::updateCTFImage(double defocusU, double defocusV, double angle)
@@ -331,23 +342,67 @@ void ProgAngularDiscreteAssign2::evaluateResiduals(const MultidimArray< std::com
 	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(mP)
 	if (DIRECT_MULTIDIM_ELEM(mask2D,n)==0 || DIRECT_MULTIDIM_ELEM(mP,n)<th)
 		DIRECT_MULTIDIM_ELEM(maskbg,n)=1;
+
+	FI=comparator->shiftedExpFourier;
+	transformer2D.inverseFourierTransform(); // Substitute I by its shifted version
 	double avg, stddev;
 	I().computeAvgStdev_within_binary_mask(maskbg, avg, stddev);
-	stdSum+=stddev;
-	stdN+=1;
+	stdBgSum+=stddev;
+	stdBgN+=1;
 
-	stddev=stdSum/stdN;
+	stddev=stdBgSum/stdBgN;
 	maskDampen().resizeNoCopy(maskbg);
+	maskfg.initZeros(maskbg);
 	maskDampen().initConstant(1.0);
 	const MultidimArray<double> &mD=maskDampen();
 	const MultidimArray<double> &mI=I();
+	Qbg=0;
+	double Nbg=0;
 	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(mP)
-	if (DIRECT_MULTIDIM_ELEM(maskbg,n)==1 || DIRECT_MULTIDIM_ELEM(mask2D,n)==0)
 	{
-		double z=DIRECT_MULTIDIM_ELEM(mI,n)/stddev;
-		DIRECT_MULTIDIM_ELEM(mD,n)=exp(-0.5*z*z);
+		if (DIRECT_MULTIDIM_ELEM(maskbg,n)==1 || DIRECT_MULTIDIM_ELEM(mask2D,n)==0)
+		{
+			double z=DIRECT_MULTIDIM_ELEM(mI,n)/stddev;
+			DIRECT_MULTIDIM_ELEM(mD,n)=exp(-0.5*z*z);
+			Qbg+=DIRECT_MULTIDIM_ELEM(mD,n);
+			Nbg+=1;
+		}
+		else
+			DIRECT_MULTIDIM_ELEM(maskfg,n)=1;
 	}
-	maxCC=correlationIndex(mP,mI,&mask2D);
+	QCCreal=correlationIndex(mP,mI,&mask2D);
+	QFourier=wFI().computeAvg();
+	Qbg/=Nbg;
+
+	typeCast(maskfg,maskfgD);
+    filter.applyMaskSpace(maskfgD);
+
+	P().rangeAdjustLS(I(),&maskfg);
+	double Nfg=0;
+	Qfg=0;
+	IP()=mI;
+	const MultidimArray<double> &mIP=IP();
+	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(mP)
+	{
+		double diff=DIRECT_MULTIDIM_ELEM(mI,n)-DIRECT_MULTIDIM_ELEM(mP,n);
+		DIRECT_MULTIDIM_ELEM(mIP,n)-=DIRECT_MULTIDIM_ELEM(maskfgD,n)*DIRECT_MULTIDIM_ELEM(mP,n);
+
+		if (DIRECT_MULTIDIM_ELEM(maskfg,n)==1)
+		{
+			double absdiff=std::abs(diff);
+			if (stdFgN<1e6)
+			{
+				stdFgSum+=absdiff;
+				stdFgN+=1;
+			}
+
+			double z=absdiff/(3*stdFgSum/stdFgN);
+			Qfg+=exp(-0.5*z*z);
+			Nfg+=1;
+		}
+
+	}
+	Qfg/=Nfg;
 }
 
 void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileName &fnImgOut, const MDRow &rowIn, MDRow &rowOut)
@@ -376,7 +431,7 @@ void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileN
 		DIRECT_MULTIDIM_ELEM(mI,n)=0.0;
 
 	// Compute Fourier transform
-	transformer2D.FourierTransform(mI, FI, true);
+	transformer2D.FourierTransform(mI, FI, false);
 
 	try
 	{
@@ -406,7 +461,12 @@ void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileN
 			bestIdxPhase=0;
 		}
 		evaluateResiduals(FI);
-	    rowOut.setValue(MDL_MAXCC,      maxCC);
+		if (!onlyEvaluate)
+	    	rowOut.setValue(MDL_MAXCC, QCCreal);
+    	rowOut.setValue(MDL_QCCREAL, QCCreal);
+    	rowOut.setValue(MDL_QBACKGROUND, Qbg);
+    	rowOut.setValue(MDL_QFOREGROUND, Qfg);
+    	rowOut.setValue(MDL_QFOURIER, QFourier);
 
 		// Write Fourier mask
 		size_t idx=fnImgOut.getPrefixNumber();
@@ -426,6 +486,12 @@ void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileN
 			P.write(fn,0,true,WRITE_OVERWRITE);
 		    rowOut.setValue(MDL_IMAGE_REF, fn);
 		}
+	    if (saveResiduals)
+	    {
+	    	fn.compose(idx,fnResidual);
+	    	IP.write(fn,0,true,WRITE_OVERWRITE);
+		    rowOut.setValue(MDL_IMAGE_RESIDUAL, fn);
+	    }
 	}
 	catch (XmippError XE)
 	{

@@ -29,6 +29,7 @@
 #include <core/xmipp_program.h>
 #include <data/ctf.h>
 #include <data/fourier_comparator.h>
+#include <data/fourier_filter.h>
 
 /**@defgroup AngularPredictDiscretes2 angular_discrete_assign2 (Discrete angular assignment2)
    @ingroup ReconsLibrary */
@@ -66,6 +67,8 @@ public:
     bool phaseFlipped;
     // Save reprojection
     bool saveReprojection;
+    // Save differences
+    bool saveResiduals;
     // Only evaluate
     bool onlyEvaluate;
 public:
@@ -74,7 +77,7 @@ public:
 	// Best phase plane
 	size_t bestIdxPhase;
 	// Auxiliary variable for composing output names
-	FileName fnWeight, fnMask, fnReprojection;
+	FileName fnWeight, fnMask, fnReprojection, fnResidual;
 
 	// Rank (used for MPI version)
     int rank;
@@ -91,10 +94,16 @@ public:
 	Image<double> I;
     // Projection image
 	Image<double> P;
+    // IP, residual I-P
+	Image<double> IP;
     // Weight in Fourier
 	Image<double> wFI;
 	// Mask
-	MultidimArray<int> maskbg;
+	MultidimArray<int> maskbg, maskfg;
+	// Mask smooth borders
+	MultidimArray<double> maskfgD;
+	// Filter
+	FourierFilter filter;
 	// Dampening mask
 	Image<double> maskDampen;
 	// Has CTF
@@ -117,10 +126,11 @@ public:
     MultidimArray<unsigned char> fullL2;
 
     // Cross correlation
-    double maxCC;
+    double QCCreal, Qbg, Qfg, QFourier;
 
     // Std sum
-    double stdSum, stdN;
+    double stdBgSum, stdBgN;
+    double stdFgSum, stdFgN;
 
     // Transformer
     FourierTransformer transformer2D;
