@@ -68,6 +68,13 @@ void ProgAngularDiscreteAssign2::readParams()
     saveReprojection = checkParam("--saveReprojection");
     saveResiduals = checkParam("--saveResidual");
     onlyEvaluate = checkParam("--onlyEvaluate");
+    adjustProfile = checkParam("--adjustProfile");
+    if (adjustProfile)
+    {
+    	fnProfile = getParam("--adjustProfile",1);
+    	Nadjust = getIntParam("--adjustProfile",2);
+    }
+
 }
 
 // Show ====================================================================
@@ -93,7 +100,11 @@ void ProgAngularDiscreteAssign2::show()
 	<< "Save reprojection:   " << saveReprojection   << std::endl
 	<< "Save residuals:      " << saveResiduals      << std::endl
 	<< "Only evaluate:       " << onlyEvaluate       << std::endl
+	<< "Adjust profile:      " << adjustProfile      << std::endl
     ;
+    if (adjustProfile)
+		std::cout << "Profile:             " << fnProfile << std::endl
+		          << "Nadjust:             " << Nadjust   << std::endl;
 }
 
 // usage ===================================================================
@@ -117,6 +128,7 @@ void ProgAngularDiscreteAssign2::defineParams()
     addParamsLine("  [--saveResidual]             : Save residual");
     addParamsLine("  [--sym <sym_file=c1>]        : It is used for computing the asymmetric unit");
     addParamsLine("  [--onlyEvaluate]             : Only evaluate, assumes that there are angles and shifts");
+    addParamsLine("  [--adjustProfile <profile=\"\"> <N=1000>] : Adjust volume Fourier amplitude with the first N images");
     addExampleLine("A typical use is:",false);
     addExampleLine("xmipp_angular_discrete_assign2 -i images.xmd --ref reference.vol -o assigned_angles.xmd");
 }

@@ -71,6 +71,12 @@ public:
     bool saveResiduals;
     // Only evaluate
     bool onlyEvaluate;
+    // Adjust profile
+    bool adjustProfile;
+    // Number of images to adjust profile
+    int Nadjust;
+    // Output profile
+    FileName fnProfile;
 public:
     // Best alignment
 	double bestRot, bestTilt, bestPsi, bestSx, bestSy;
@@ -141,6 +147,8 @@ public:
     // Shift phase planes
     std::vector< MultidimArray<std::complex<double> >* > shiftPhase;
 
+	// Amplitude correction profile
+    MultidimArray<double> amplitudeProfile;
 public:
     /// Empty constructor
     ProgAngularDiscreteAssign2();
