@@ -85,6 +85,11 @@ public:
     	MDaux.sort(*getOutputMd(), MDL_GATHER_ID);
         MDaux.removeLabel(MDL_GATHER_ID);
         *getOutputMd()=MDaux;
+
+        profile.initZeros(XSIZE(comparator->IabsSum));
+        MPI_Allreduce(MULTIDIM_ARRAY(profile), MULTIDIM_ARRAY(profile), XSIZE(profile), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        profile/=nProcs-1;
+
         if (node->isMaster())
         	ProgAngularDiscreteAssign2::finishProcessing();
     }

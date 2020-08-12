@@ -138,6 +138,9 @@ public:
     double stdBgSum, stdBgN;
     double stdFgSum, stdFgN;
 
+    // Profile of the volume
+	MultidimArray<double> profile;
+
     // Transformer
     FourierTransformer transformer2D;
 
@@ -182,6 +185,9 @@ public:
 
     /** Update CTF image */
     void updateCTFImage(double defocusU, double defocusV, double angle);
+
+    /** Finish processing */
+    void finishProcessing();
 
     /** Post process */
     void postProcess();

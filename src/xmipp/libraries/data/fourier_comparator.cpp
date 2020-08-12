@@ -297,6 +297,10 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
             	DIRECT_A2D_ELEM(projectionFourier,i,j)=std::complex<double>(reTh,imTh);
             	DIRECT_A2D_ELEM(shiftedExpFourier,i,j)=std::complex<double>(reExp,imExp);
 
+            	int idx=DIRECT_A2D_ELEM(wIdx,i,j);
+            	DIRECT_A1D_ELEM(VabsSum,idx)+=std::abs(DIRECT_A2D_ELEM(projectionFourier,i,j));
+            	DIRECT_A1D_ELEM(IabsSum,idx)+=std::abs(DIRECT_A2D_ELEM(shiftedExpFourier,i,j));
+
             	A3D_ELEM(VN,kVolume,iVolume,jVolume)++;
             	A3D_ELEM(VreSum,kVolume,iVolume,jVolume)+=reExp;
             	A3D_ELEM(VimSum,kVolume,iVolume,jVolume)+=imExp;
@@ -458,4 +462,6 @@ void FourierComparator::produceSideInfoProjection()
     }
 
     maxIdx = (int)std::ceil(maxFrequency*volumeSize);
+    VabsSum.initZeros(maxIdx);
+    IabsSum.initZeros(maxIdx);
 }

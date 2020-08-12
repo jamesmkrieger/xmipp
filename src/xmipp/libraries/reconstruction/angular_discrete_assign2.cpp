@@ -71,8 +71,8 @@ void ProgAngularDiscreteAssign2::readParams()
     adjustProfile = checkParam("--adjustProfile");
     if (adjustProfile)
     {
-    	fnProfile = getParam("--adjustProfile",1);
-    	Nadjust = getIntParam("--adjustProfile",2);
+    	fnProfile = getParam("--adjustProfile",0);
+    	Nadjust = getIntParam("--adjustProfile",1);
     }
 
 }
@@ -419,6 +419,14 @@ void ProgAngularDiscreteAssign2::evaluateResiduals(const MultidimArray< std::com
 
 void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileName &fnImgOut, const MDRow &rowIn, MDRow &rowOut)
 {
+	if (adjustProfile)
+	{
+		if (Nadjust==0)
+			return;
+		else
+			Nadjust--;
+	}
+
     rowOut=rowIn;
 
     // Read input image and initial parameters
@@ -513,9 +521,26 @@ void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileN
 	}
 }
 
+void ProgAngularDiscreteAssign2::finishProcessing()
+{
+	if (adjustProfile)
+	{
+		profile.initZeros(XSIZE(comparator->IabsSum));
+		FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(comparator->IabsSum)
+			if (DIRECT_MULTIDIM_ELEM(comparator->VabsSum,n)>0)
+				DIRECT_MULTIDIM_ELEM(profile,n)=DIRECT_MULTIDIM_ELEM(comparator->IabsSum,n)/DIRECT_MULTIDIM_ELEM(comparator->VabsSum,n);
+	}
+
+}
+
 void ProgAngularDiscreteAssign2::postProcess()
 {
-	MetaData &ptrMdOut=*getOutputMd();
-	ptrMdOut.removeDisabled();
-	ptrMdOut.write(fn_out.replaceExtension("xmd"));
+	if (!adjustProfile)
+	{
+		MetaData &ptrMdOut=*getOutputMd();
+		ptrMdOut.removeDisabled();
+		ptrMdOut.write(fn_out.replaceExtension("xmd"));
+	}
+	else
+		profile.write(fnProfile);
 }

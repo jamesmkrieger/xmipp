@@ -55,6 +55,9 @@ public:
     // For the Mahalanobis distance
     MultidimArray<double> VreSum, VimSum, VreSum2, VimSum2, VreimSum, VN;
 
+    // For the scaling
+    MultidimArray<double> IabsSum, VabsSum;
+
     // Phase shift image
     MultidimArray<double> phaseShiftImgB, phaseShiftImgA;
 
