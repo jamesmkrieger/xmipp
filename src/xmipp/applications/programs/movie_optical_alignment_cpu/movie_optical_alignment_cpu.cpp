@@ -43,6 +43,8 @@
 #endif // GPU
 
 #include <core/multidim_array.h>
+#include <core/metadata.h>
+#include <core/metadata_extension.h>
 #include <core/xmipp_image.h>
 #include <core/xmipp_image_generic.h>
 #include <data/normalize.h>
