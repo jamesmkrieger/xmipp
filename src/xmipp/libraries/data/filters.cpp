@@ -23,12 +23,16 @@
  *  e-mail address 'xmipp@cnb.csic.es'
  ***************************************************************************/
 
-#include "filters.h"
+#include <queue>
 #include <list>
-#include <core/xmipp_fftw.h>
+#include "core/metadata_extension.h"
+#include "core/multidim_array.h"
+#include "core/xmipp_program.h"
+#include "data/fourier_filter.h"
+#include "filters.h"
+#include "mask.h"
 #include "morphology.h"
 #include "wavelet.h"
-#include <data/fourier_filter.h>
 
 /* Subtract background ---------------------------------------------------- */
 void substractBackgroundPlane(MultidimArray<double> &I)
