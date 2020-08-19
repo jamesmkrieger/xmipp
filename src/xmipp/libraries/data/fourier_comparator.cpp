@@ -25,7 +25,8 @@
 
 #include "fourier_comparator.h"
 #include <core/xmipp_fft.h>
-
+#include <core/geometry.h>
+#include <core/transformations.h>
 
 FourierComparator::FourierComparator(double paddFactor, double maxFreq, int degree)
 {
@@ -266,6 +267,12 @@ double FourierComparator::compare(const MultidimArray< std::complex<double> > &I
             double ab_cd = (a + b) * (c + d);
             double reTh = ac - bd;
             double imTh = ab_cd - ac - bd;
+            if (XSIZE(KV)>0)
+            {
+            	double K=DIRECT_A1D_ELEM(KV,idxij);
+            	reTh*=K;
+            	imTh*=K;
+            }
 
 			double *ptrI_ij=(double *)&DIRECT_A2D_ELEM(Iexp,i,j);
             double reExp, imExp;

@@ -26,7 +26,7 @@
 #ifndef _PROG_ANGULAR_PREDICT_DISCRETE2
 #define _PROG_ANGULAR_PREDICT_DISCRETE2
 
-#include <core/xmipp_program.h>
+#include <core/xmipp_metadata_program.h>
 #include <data/ctf.h>
 #include <data/fourier_comparator.h>
 #include <data/fourier_filter.h>

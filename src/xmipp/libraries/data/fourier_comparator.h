@@ -27,6 +27,7 @@
 
 #include <core/xmipp_image.h>
 #include <core/xmipp_fftw.h>
+#include <core/matrix2d.h>
 
 /**@defgroup FourierComparator Fourier comparator
    @ingroup ReconsLibrary */
@@ -60,6 +61,9 @@ public:
 
     // Phase shift image
     MultidimArray<double> phaseShiftImgB, phaseShiftImgA;
+
+    // Adjustment profile
+    MultidimArray<double> KV;
 
     // Original volume size
     int volumeSize;

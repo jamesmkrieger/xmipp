@@ -24,6 +24,7 @@
  ***************************************************************************/
 
 #include "angular_discrete_assign2.h"
+#include <core/xmipp_image_generic.h>
 #include <data/mask.h>
 #include <data/symmetries.h>
 #include <reconstruction/directions.h>
@@ -81,8 +82,10 @@ void ProgAngularDiscreteAssign2::readParams()
 // Show ====================================================================
 void ProgAngularDiscreteAssign2::show()
 {
+	std::cout << "Show 1" << std::endl;
     if (!verbose)
         return;
+	std::cout << "Show 1.1" << std::endl;
 	XmippMetadataProgram::show();
     std::cout
     << "Reference volume:    " << fnVol              << std::endl
@@ -103,9 +106,11 @@ void ProgAngularDiscreteAssign2::show()
 	<< "Only evaluate:       " << onlyEvaluate       << std::endl
 	<< "Adjust profile:      " << adjustProfile      << std::endl
     ;
+	std::cout << "Show 2" << std::endl;
     if (adjustProfile)
 		std::cout << "Profile:             " << fnProfile << std::endl
 		          << "Nadjust:             " << Nadjust   << std::endl;
+	std::cout << "Show 3" << std::endl;
 }
 
 // usage ===================================================================
@@ -138,6 +143,8 @@ void ProgAngularDiscreteAssign2::defineParams()
 // Produce side information ================================================
 void ProgAngularDiscreteAssign2::preProcess()
 {
+	std::cout << "Aqui voy" << std::endl;
+
     // Read the reference volume
 	Image<double> V;
 	V.read(fnVol);
@@ -195,7 +202,10 @@ void ProgAngularDiscreteAssign2::preProcess()
     }
 
     // Construct comparator
+    std::cout << "Aqui1" <<std::endl;
     comparator = new FourierComparator(V(),pad,Ts/maxResol,NEAREST); // BSPLINE3, LINEAR
+    comparator->KV=profile;
+    std::cout << "Aqui2" <<std::endl;
 
     // Precompute phase planes
     if (!onlyEvaluate)
@@ -237,6 +247,7 @@ void ProgAngularDiscreteAssign2::preProcess()
     filter.FilterShape = REALGAUSSIAN;
     filter.FilterBand = LOWPASS;
     filter.w1 = 2;
+    std::cout << "Aqui3" <<std::endl;
 }
 
 void ProgAngularDiscreteAssign2::updateCTFImage(double defocusU, double defocusV, double angle)
@@ -351,9 +362,12 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 
 void ProgAngularDiscreteAssign2::evaluateResiduals(const MultidimArray< std::complex<double> > &FIexp)
 {
+    std::cout << "Aqui4" <<std::endl;
+
 	comparator->prepareForIdx(0,XSIZE(FIexp));
 	comparator->setEuler(bestRot,bestTilt,bestPsi);
 	comparator->compare(FI,shiftPhase[bestIdxPhase],ctfImage,true);
+    std::cout << "Aqui5" <<std::endl;
 
 	wFI()=comparator->weightFourier;
 	P()=comparator->projection();
