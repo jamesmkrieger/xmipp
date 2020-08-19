@@ -69,12 +69,13 @@ void ProgAngularDiscreteAssign2::readParams()
     saveResiduals = checkParam("--saveResidual");
     onlyEvaluate = checkParam("--onlyEvaluate");
     adjustProfile = checkParam("--adjustProfile");
+    if (checkParam("--profile"))
+    	fnProfile = getParam("--profile");
     if (adjustProfile)
     {
     	fnProfile = getParam("--adjustProfile",0);
     	Nadjust = getIntParam("--adjustProfile",1);
     }
-
 }
 
 // Show ====================================================================
@@ -128,6 +129,7 @@ void ProgAngularDiscreteAssign2::defineParams()
     addParamsLine("  [--saveResidual]             : Save residual");
     addParamsLine("  [--sym <sym_file=c1>]        : It is used for computing the asymmetric unit");
     addParamsLine("  [--onlyEvaluate]             : Only evaluate, assumes that there are angles and shifts");
+    addParamsLine("  [--profile <profile>]        : Adjusted profile to apply to the volume");
     addParamsLine("  [--adjustProfile <profile=\"\"> <N=1000>] : Adjust volume Fourier amplitude with the first N images");
     addExampleLine("A typical use is:",false);
     addExampleLine("xmipp_angular_discrete_assign2 -i images.xmd --ref reference.vol -o assigned_angles.xmd");
@@ -183,6 +185,13 @@ void ProgAngularDiscreteAssign2::preProcess()
 		Ncandidates = Nrl * psiList.size() * shiftList.size() * shiftList.size();
 		currentL2.initZeros(Ncandidates);
 		fullL2.initZeros(Ncandidates);
+
+		if (fnProfile!="")
+		{
+			Matrix1D<double> vProfile;
+			vProfile.readNoSize(fnProfile);
+			profile=vProfile;
+		}
     }
 
     // Construct comparator

@@ -37,15 +37,18 @@ public:
     	ProgAngularDiscreteAssign2::defineParams();
         MpiMetadataProgram::defineParams();
     }
+
     void readParams()
     {
         MpiMetadataProgram::readParams();
         ProgAngularDiscreteAssign2::readParams();
     }
+
     void read(int argc, char **argv, bool reportErrors = true)
     {
         MpiMetadataProgram::read(argc,argv);
     }
+
     void preProcess()
     {
     	rank=node->rank;
@@ -57,6 +60,7 @@ public:
         mdIn.fillLinear(MDL_GATHER_ID,1,1);
         createTaskDistributor(mdIn, blockSize);
     }
+
     void startProcessing()
     {
         if (node->rank==1)
@@ -66,6 +70,7 @@ public:
         }
         node->barrierWait();
     }
+
     void showProgress()
     {
         if (node->rank==1)
@@ -74,10 +79,12 @@ public:
             ProgAngularDiscreteAssign2::showProgress();
         }
     }
+
     bool getImageToProcess(size_t &objId, size_t &objIndex)
     {
         return getTaskToProcess(objId, objIndex);
     }
+
     void finishProcessing()
     {
         node->gatherMetadatas(*getOutputMd(), fn_out);
@@ -86,13 +93,15 @@ public:
         MDaux.removeLabel(MDL_GATHER_ID);
         *getOutputMd()=MDaux;
 
-        profile.initZeros(XSIZE(comparator->IabsSum));
-        MPI_Allreduce(MULTIDIM_ARRAY(profile), MULTIDIM_ARRAY(profile), XSIZE(profile), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        profile/=nProcs-1;
-
         if (node->isMaster())
+        	profile.initZeros(XSIZE(comparator->IabsSum));
+        else
         	ProgAngularDiscreteAssign2::finishProcessing();
+
+        MPI_Allreduce(MPI_IN_PLACE, MULTIDIM_ARRAY(profile), XSIZE(profile), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        profile/=nProcs-1;
     }
+
     void wait()
     {
 		distributor->wait();
