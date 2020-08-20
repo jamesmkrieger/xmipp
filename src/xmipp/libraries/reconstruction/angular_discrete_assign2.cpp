@@ -76,16 +76,18 @@ void ProgAngularDiscreteAssign2::readParams()
     {
     	fnProfile = getParam("--adjustProfile",0);
     	Nadjust = getIntParam("--adjustProfile",1);
-    }
+
+        produces_a_metadata = false;
+        each_image_produces_an_output = false;
+        produces_an_output = false;
+	}
 }
 
 // Show ====================================================================
 void ProgAngularDiscreteAssign2::show()
 {
-	std::cout << "Show 1" << std::endl;
     if (!verbose)
         return;
-	std::cout << "Show 1.1" << std::endl;
 	XmippMetadataProgram::show();
     std::cout
     << "Reference volume:    " << fnVol              << std::endl
@@ -548,7 +550,6 @@ void ProgAngularDiscreteAssign2::finishProcessing()
 			if (DIRECT_MULTIDIM_ELEM(comparator->VabsSum,n)>0)
 				DIRECT_MULTIDIM_ELEM(profile,n)=DIRECT_MULTIDIM_ELEM(comparator->IabsSum,n)/DIRECT_MULTIDIM_ELEM(comparator->VabsSum,n);
 	}
-
 }
 
 void ProgAngularDiscreteAssign2::postProcess()
