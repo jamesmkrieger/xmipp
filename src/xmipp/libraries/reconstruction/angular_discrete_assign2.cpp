@@ -106,11 +106,9 @@ void ProgAngularDiscreteAssign2::show()
 	<< "Only evaluate:       " << onlyEvaluate       << std::endl
 	<< "Adjust profile:      " << adjustProfile      << std::endl
     ;
-	std::cout << "Show 2" << std::endl;
     if (adjustProfile)
 		std::cout << "Profile:             " << fnProfile << std::endl
 		          << "Nadjust:             " << Nadjust   << std::endl;
-	std::cout << "Show 3" << std::endl;
 }
 
 // usage ===================================================================
@@ -143,8 +141,6 @@ void ProgAngularDiscreteAssign2::defineParams()
 // Produce side information ================================================
 void ProgAngularDiscreteAssign2::preProcess()
 {
-	std::cout << "Aqui voy" << std::endl;
-
     // Read the reference volume
 	Image<double> V;
 	V.read(fnVol);
@@ -202,10 +198,8 @@ void ProgAngularDiscreteAssign2::preProcess()
     }
 
     // Construct comparator
-    std::cout << "Aqui1" <<std::endl;
     comparator = new FourierComparator(V(),pad,Ts/maxResol,NEAREST); // BSPLINE3, LINEAR
     comparator->KV=profile;
-    std::cout << "Aqui2" <<std::endl;
 
     // Precompute phase planes
     if (!onlyEvaluate)
@@ -235,7 +229,7 @@ void ProgAngularDiscreteAssign2::preProcess()
 		fnReprojection = fn_out.removeAllExtensions()+"_reprojections.stk";
 	if (saveResiduals)
 		fnResidual = fn_out.removeAllExtensions()+"_residuals.stk";
-	if (rank==0)
+	if (rank==0 && !onlyEvaluate)
 	{
 		createEmptyFile(fnWeight, XSIZE(comparator->weightFourier), YSIZE(comparator->weightFourier), 1, mdInSize, true, WRITE_OVERWRITE);
 		createEmptyFile(fnMask, Xdim, Xdim, 1, mdInSize, true, WRITE_OVERWRITE);
@@ -247,7 +241,6 @@ void ProgAngularDiscreteAssign2::preProcess()
     filter.FilterShape = REALGAUSSIAN;
     filter.FilterBand = LOWPASS;
     filter.w1 = 2;
-    std::cout << "Aqui3" <<std::endl;
 }
 
 void ProgAngularDiscreteAssign2::updateCTFImage(double defocusU, double defocusV, double angle)
@@ -362,12 +355,9 @@ void ProgAngularDiscreteAssign2::evaluateImage(const MultidimArray< std::complex
 
 void ProgAngularDiscreteAssign2::evaluateResiduals(const MultidimArray< std::complex<double> > &FIexp)
 {
-    std::cout << "Aqui4" <<std::endl;
-
 	comparator->prepareForIdx(0,XSIZE(FIexp));
 	comparator->setEuler(bestRot,bestTilt,bestPsi);
 	comparator->compare(FI,shiftPhase[bestIdxPhase],ctfImage,true);
-    std::cout << "Aqui5" <<std::endl;
 
 	wFI()=comparator->weightFourier;
 	P()=comparator->projection();
@@ -513,14 +503,17 @@ void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileN
 
 		// Write Fourier mask
 		size_t idx=fnImgOut.getPrefixNumber();
-		FileName fn;
-		fn.compose(idx,fnWeight);
-		wFI.write(fn,0,true,WRITE_OVERWRITE);
-	    rowOut.setValue(MDL_IMAGE_MASK_FOURIER, fn);
+		if (!onlyEvaluate)
+		{
+			FileName fn;
+			fn.compose(idx,fnWeight);
+			wFI.write(fn,0,true,WRITE_OVERWRITE);
+			rowOut.setValue(MDL_IMAGE_MASK_FOURIER, fn);
 
-		fn.compose(idx,fnMask);
-		maskDampen.write(fn,0,true,WRITE_OVERWRITE);
-	    rowOut.setValue(MDL_IMAGE_MASK, fn);
+			fn.compose(idx,fnMask);
+			maskDampen.write(fn,0,true,WRITE_OVERWRITE);
+			rowOut.setValue(MDL_IMAGE_MASK, fn);
+		}
 
 	    // Write reprojection
 	    if (saveReprojection)
