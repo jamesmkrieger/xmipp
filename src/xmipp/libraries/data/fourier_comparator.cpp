@@ -469,6 +469,6 @@ void FourierComparator::produceSideInfoProjection()
     }
 
     maxIdx = (int)std::ceil(maxFrequency*volumeSize);
-    VabsSum.initZeros(maxIdx);
-    IabsSum.initZeros(maxIdx);
+    VabsSum.initZeros(maxIdx+1);
+    IabsSum.initZeros(maxIdx+1);
 }
