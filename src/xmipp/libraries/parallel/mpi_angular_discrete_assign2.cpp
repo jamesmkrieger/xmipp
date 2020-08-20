@@ -93,13 +93,17 @@ public:
         MDaux.removeLabel(MDL_GATHER_ID);
         *getOutputMd()=MDaux;
 
-        if (node->isMaster())
-        	profile.initZeros(XSIZE(comparator->IabsSum));
-        else
-        	ProgAngularDiscreteAssign2::finishProcessing();
+    	if (adjustProfile)
+    	{
+			if (node->isMaster())
+				profile.initZeros(XSIZE(comparator->IabsSum));
+			else
+				ProgAngularDiscreteAssign2::finishProcessing();
+			wait();
 
-        MPI_Allreduce(MPI_IN_PLACE, MULTIDIM_ARRAY(profile), XSIZE(profile), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        profile/=nProcs-1;
+			MPI_Allreduce(MPI_IN_PLACE, MULTIDIM_ARRAY(profile), XSIZE(profile), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+			profile/=nProcs-1;
+    	}
     }
 
     void wait()
