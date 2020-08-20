@@ -24,6 +24,7 @@
  ***************************************************************************/
 
 #include "core/xmipp_metadata_program.h"
+#include "core/xmipp_image.h"
 
 class XmippFilter;
 
@@ -36,6 +37,9 @@ private:
 
     // Read CTF
     bool readCTF;
+
+    // Working image
+    Image<double> m_img;
 
 protected:
     void defineParams();
