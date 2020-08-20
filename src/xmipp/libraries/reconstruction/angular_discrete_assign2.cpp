@@ -518,12 +518,14 @@ void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileN
 	    // Write reprojection
 	    if (saveReprojection)
 		{
+			FileName fn;
 			fn.compose(idx,fnReprojection);
 			P.write(fn,0,true,WRITE_OVERWRITE);
 		    rowOut.setValue(MDL_IMAGE_REF, fn);
 		}
 	    if (saveResiduals)
 	    {
+			FileName fn;
 	    	fn.compose(idx,fnResidual);
 	    	IP.write(fn,0,true,WRITE_OVERWRITE);
 		    rowOut.setValue(MDL_IMAGE_RESIDUAL, fn);
