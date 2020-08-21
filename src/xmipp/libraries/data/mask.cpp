@@ -1957,6 +1957,7 @@ void ProgMask::processImage(const FileName &fnImg, const FileName &fnImgOut,
     	FileName fnMask;
     	rowIn.getValue(MDL_IMAGE_MASK, fnMask);
     	imageMask.read(fnMask);
+    	imageMask().setXmippOrigin();
 		image()*=imageMask();
 		image.write(fnImgOut);
 		rowOut.setValue(MDL_SHIFT_X,0.0);
