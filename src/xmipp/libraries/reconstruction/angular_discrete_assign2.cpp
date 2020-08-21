@@ -505,17 +505,14 @@ void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileN
 
 		// Write Fourier mask
 		size_t idx=fnImgOut.getPrefixNumber();
-		if (!onlyEvaluate)
-		{
-			FileName fn;
-			fn.compose(idx,fnWeight);
-			wFI.write(fn,0,true,WRITE_OVERWRITE);
-			rowOut.setValue(MDL_IMAGE_MASK_FOURIER, fn);
+		FileName fn;
+		fn.compose(idx,fnWeight);
+		wFI.write(fn,0,true,WRITE_OVERWRITE);
+		rowOut.setValue(MDL_IMAGE_MASK_FOURIER, fn);
 
-			fn.compose(idx,fnMask);
-			maskDampen.write(fn,0,true,WRITE_OVERWRITE);
-			rowOut.setValue(MDL_IMAGE_MASK, fn);
-		}
+		fn.compose(idx,fnMask);
+		maskDampen.write(fn,0,true,WRITE_OVERWRITE);
+		rowOut.setValue(MDL_IMAGE_MASK, fn);
 
 	    // Write reprojection
 	    if (saveReprojection)
