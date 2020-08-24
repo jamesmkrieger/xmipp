@@ -184,7 +184,7 @@ public:
     void processImage(const FileName &fnImg, const FileName &fnImgOut, const MDRow &rowIn, MDRow &rowOut);
 
     /** Update CTF image */
-    void updateCTFImage(double defocusU, double defocusV, double angle);
+    void updateCTFImage();
 
     /** Finish processing */
     void finishProcessing();

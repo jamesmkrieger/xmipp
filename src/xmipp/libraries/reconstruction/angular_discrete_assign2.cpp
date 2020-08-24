@@ -245,12 +245,8 @@ void ProgAngularDiscreteAssign2::preProcess()
     filter.w1 = 2;
 }
 
-void ProgAngularDiscreteAssign2::updateCTFImage(double defocusU, double defocusV, double angle)
+void ProgAngularDiscreteAssign2::updateCTFImage()
 {
-	ctf.K=1; // get pure CTF with no envelope
-	currentDefocusU=ctf.DeltafU=defocusU;
-	currentDefocusV=ctf.DeltafV=defocusV;
-	currentAngle=ctf.azimuthal_angle=angle;
 	ctf.produceSideInfo();
 	if (ctfImage==NULL)
 	{
@@ -258,7 +254,7 @@ void ProgAngularDiscreteAssign2::updateCTFImage(double defocusU, double defocusV
 		ctfImage->resizeNoCopy(comparator->volumeSize, comparator->volumeSize);
 		STARTINGY(*ctfImage)=STARTINGX(*ctfImage)=0;
 	}
-	ctf.generateCTF(comparator->volumeSize, comparator->volumeSize, *ctfImage,Ts);
+	ctf.generateCTF(comparator->volumeSize, comparator->volumeSize, *ctfImage, Ts);
 	if (phaseFlipped)
 		FOR_ALL_ELEMENTS_IN_ARRAY2D(*ctfImage)
 			A2D_ELEM(*ctfImage,i,j)=fabs(A2D_ELEM(*ctfImage,i,j));
@@ -450,6 +446,7 @@ void ProgAngularDiscreteAssign2::processImage(const FileName &fnImg, const FileN
 		hasCTF=true;
 		ctf.readFromMdRow(rowIn);
 		ctf.produceSideInfo();
+		updateCTFImage();
 	}
 	else
 		hasCTF=false;
