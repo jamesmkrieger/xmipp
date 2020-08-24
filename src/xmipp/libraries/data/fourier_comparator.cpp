@@ -27,6 +27,7 @@
 #include <core/xmipp_fft.h>
 #include <core/geometry.h>
 #include <core/transformations.h>
+#include <core/bilib/kernel.h>
 
 FourierComparator::FourierComparator(double paddFactor, double maxFreq, int degree)
 {
