@@ -36,9 +36,11 @@
 #include <core/args.h>
 #include <data/array_2D.h>
 #include <core/metadata.h>
+#include <core/metadata_sql.h>
 #include <data/projection.h>
 #include <data/symmetries.h>
 #include <core/xmipp_fftw.h>
+#include <core/bilib/kernel.h>
 #include <core/xmipp_funcs.h>
 #include <core/xmipp_image.h>
 #include <core/xmipp_threads.h>
