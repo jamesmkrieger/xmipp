@@ -28,19 +28,7 @@
 #include <core/xmipp_fftw.h>
 #include <core/metadata_extension.h>
 
-class ProgResolutionFsc : public XmippProgram
-{
-public:
-
-    FileName    fn_ref, fn_root,fn_img, fn_out;
-    double       sam;
-    double       max_sam, min_sam;
-    bool        do_dpr, do_set_of_images, do_o, do_rfactor;
-
-    FileName    fn_sel;
-    bool        apply_geo;
-
-    void defineParams()
+    void ProgResolutionFsc::defineParams()
     {
         apply_geo = true;
 
@@ -94,7 +82,7 @@ public:
         addExampleLine("xmipp_resolution_fsc --set_of_images selfile.sel --sampling_rate 5.6");
     }
 
-    void readParams()
+    void ProgResolutionFsc::readParams()
     {
         sam = getDoubleParam("--sampling_rate");
 
@@ -126,7 +114,7 @@ public:
             fn_root = getParam("--oroot");
     }
 
-    void writeFiles(const FileName &fnRoot,
+    void ProgResolutionFsc::writeFiles(const FileName &fnRoot,
                     const MultidimArray<double> &freq,
                     const MultidimArray<double> &frc,
                     const MultidimArray<double> &frc_noise,
@@ -177,7 +165,7 @@ public:
         MD2.write(fn_frc, MD_APPEND);
     }
 
-    bool process_img()
+    bool ProgResolutionFsc::process_img()
     {
         Image<double>  refI,img;
         //if (apply_geo)
@@ -205,7 +193,7 @@ public:
         return true;
     }
 
-    bool process_sel()
+    bool ProgResolutionFsc::process_sel()
     {
         MetaData MD(fn_sel), MDout;
         MultidimArray<double> freq, frc, dpr, frc_noise, ssnr, error_l2;
@@ -215,11 +203,11 @@ public:
         return true;
     }
 
-    void run()
+    void ProgResolutionFsc::run()
     {
         if (!do_set_of_images)
             process_img();
         else
             process_sel();
     }
-};
+
