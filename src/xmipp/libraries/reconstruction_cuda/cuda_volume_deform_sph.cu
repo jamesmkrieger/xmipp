@@ -21,6 +21,7 @@
 
 // ImageData macros
 
+// Index to global memory
 #define GET_IDX(ImD,k,i,j) \
     ((ImD).xDim * (ImD).yDim * (k) + (ImD).xDim * (i) + (j))
 
@@ -44,12 +45,14 @@
 #define L2P_Z_IDX(ImD,k) \
     ((k) - (ImD).zShift)
 
+// Element access
 #define ELEM_3D(ImD,k,i,j) \
     ((ImD).data[GET_IDX((ImD), (k), (i), (j))])
 
 #define ELEM_3D_SHIFTED(ImD,k,i,j) \
     (ELEM_3D((ImD), (k) - (ImD).zShift, (i) - (ImD).yShift, (j) - (ImD).xShift))
 
+// Utility
 #define MY_OUTSIDE(ImD,k,i,j) \
     ((j) < (ImD).xShift || (j) > (ImD).xShift + (ImD).xDim - 1 || \
      (i) < (ImD).yShift || (i) > (ImD).yShift + (ImD).yDim - 1 || \
@@ -132,11 +135,9 @@ __global__ void computeDeform(T Rmax2, T iRmax, IROimages images,
     T rr = sqrt(r2) * iRmax;
     T gx = 0.0, gy = 0.0, gz = 0.0;
 
-    // Try to reduce conditions (some threads in warp may end up slacking)
     if (r2 < Rmax2) {
         for (unsigned idx = 0; idx < zshparams.size; idx++) {
             if (steps_cp[idx] == 1) {
-                // Save parameters of the same index next to each other
                 // Constant memory? all threads in warp use the same values
                 int l1 = zshparams.vL1[idx];
                 int n = zshparams.vN[idx];

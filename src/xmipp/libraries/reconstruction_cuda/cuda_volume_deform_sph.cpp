@@ -1,17 +1,22 @@
+// Xmipp includes
 #include "core/metadata_label.h"
 #include "core/xmipp_random_mode.h"
+#include "enum/compute_api.h"
 #include "reconstruction_adapt_cuda/volume_deform_sph_gpu.h"
 #include "cuda_volume_deform_sph.h"
 #include "core/matrix1d.h"
+// Standard includes
 #include <iterator>
 #include <stdexcept>
 #include <stdio.h>
 #include <iostream>
 #include <exception>
-
+// Thrust includes
 #include <thrust/reduce.h>
 #include <thrust/device_vector.h>
-
+// KTT includes
+#include "tuner_api.h"
+// Cuda kernel include
 #include "cuda_volume_deform_sph.cu"
 
 
@@ -227,6 +232,9 @@ void VolumeDeformSph::transferImageData(Image<double>& outputImage, ImageData& i
 
 void VolumeDeformSph::runKernel() 
 {
+    // KTT test
+    ktt::Tuner tuner(0, 0, ktt::ComputeAPI::CUDA);
+
     // Does not work in general case, but test data have nice sizes
     dim3 grid;
     grid.x = images.VR.xDim / BLOCK_X_DIM;
