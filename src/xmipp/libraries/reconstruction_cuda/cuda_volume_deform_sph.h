@@ -2,8 +2,12 @@
 #define VOLUME_DEFORM_SPH_H
 
 #include <vector>
+#include "api/dimension_vector.h"
 #include "core/xmipp_image.h"
 #include "core/multidim_array.h"
+
+#include "ktt_types.h"
+#include "tuner_api.h"
 
 #ifdef COMP_DOUBLE
 using ComputationDataType = double;
@@ -78,32 +82,54 @@ public:
     KernelOutputs getOutputs();
     void transferImageData(Image<double>& outputImage, ImageData& inputData);
 
+    VolumeDeformSph();
     ~VolumeDeformSph();
 
 private:
     ProgVolumeDeformSphGpu* program = nullptr;
 
+    // ktt stuff
+    ktt::Tuner tuner;
+    ktt::KernelId kernelId;
+
+    ktt::DimensionVector kttBlock;
+    ktt::DimensionVector kttGrid;
+
+    // Kernel path
+    const std::string pathToXmipp = "/home/david/thesis/xmipp-bundle/";
+    const std::string pathToKernel = "src/xmipp/libraries/reconstruction_cuda/cuda_volume_deform_sph.cu";
+
     // Variables transfered to the GPU memory
+    ktt::ArgumentId Rmax2Id;
     ComputationDataType Rmax2;
 
+    ktt::ArgumentId iRmaxId;
     ComputationDataType iRmax;
 
+    ktt::ArgumentId stepsId;
     ComputationDataType* steps = nullptr;
 
+    ktt::ArgumentId clnmId;
     ComputationDataType* clnm = nullptr;
 
+    ktt::ArgumentId applyTransformationId;
     bool applyTransformation;
 
+    ktt::ArgumentId saveDeformationId;
     bool saveDeformation;
 
     // Inside pointers point to the GPU memory
 
+    ktt::ArgumentId imagesId;
     IROimages images;
 
+    ktt::ArgumentId deformImagesId;
     DeformImages deformImages;
 
+    ktt::ArgumentId zshparamsId;
     ZSHparams zshparams;
 
+    ktt::ArgumentId volumesId;
     Volumes volumes;
     // because of the stupid design... :(
     std::vector<ImageData> justForFreeI;

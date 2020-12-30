@@ -1,14 +1,82 @@
 #ifndef CUDA_VOLUME_DEFORM_SPH_CU
 #define CUDA_VOLUME_DEFORM_SPH_CU
-#include "cuda_volume_deform_sph.h"
+//#include "cuda_volume_deform_sph.h"
 
-#include <cuda.h>
-#include <cuda_device_runtime_api.h>
-#include <cuda_runtime_api.h>
+//#include <cuda.h>
+//#include <cuda_device_runtime_api.h>
+//#include <cuda_runtime_api.h>
 
-#include <math_constants.h>
+//#include <math_constants.h>
 
-#include <thrust/device_vector.h>
+//#include <thrust/device_vector.h>
+
+// Define data structures from the headers
+
+//#ifdef COMP_DOUBLE
+//using ComputationDataType = double;
+//#else
+//using ComputationDataType = float;
+//#endif
+#define ComputationDataType float
+#define T ComputationDataType
+
+#define FLOOR(x) (((x) == (int)(x)) ? (int)(x):(((x) > 0) ? (int)(x) : \
+                  (int)((x) - 1)))
+#define LIN_INTERP(a, l, h) ((l) + ((h) - (l)) * (a))
+//#define FLOOR(num) ((int)(num))
+//#define LIN_INTERP(x,y,z) (0)
+
+struct ImageData
+{
+    int xShift;
+    int yShift;
+    int zShift;
+
+    int xDim;
+    int yDim;
+    int zDim;
+
+    ComputationDataType* data;
+};
+
+struct ZSHparams 
+{
+    int* vL1;
+    int* vN;
+    int* vL2;
+    int* vM;
+    unsigned size;
+};
+
+struct Volumes 
+{
+    ImageData* I;
+    ImageData* R;
+    unsigned size;
+};
+
+struct IROimages 
+{
+    ImageData VI;
+    ImageData VR;
+    ImageData VO;
+};
+
+struct DeformImages 
+{
+    ImageData Gx;
+    ImageData Gy;
+    ImageData Gz;
+};
+
+struct KernelOutputs 
+{
+    ComputationDataType diff2;
+    ComputationDataType sumVD;
+    ComputationDataType modg;
+    ComputationDataType Ncount;
+};
+
 
 // CUDA kernel defines
 #define BLOCK_X_DIM 8
@@ -64,10 +132,10 @@ __device__ double ZernikeSphericalHarmonics(int l1, int n, int l2, int m, double
 #define my_PI CUDART_PI
 #else
 __device__ float ZernikeSphericalHarmonics(int l1, int n, int l2, int m, float xr, float yr, float zr, float r);
-#define my_PI CUDART_PI_F
+#define my_PI (3.141592653589f)
 #endif
 
-template<typename T>
+//template<typename T>
 __device__ T interpolatedElement3D(ImageData ImD,
         T x, T y, T z, T doutside_value = 0) 
 {
@@ -110,11 +178,11 @@ __device__ T interpolatedElement3D(ImageData ImD,
         return LIN_INTERP(fz, dxy0, dxy1);
 }
 
-template<typename T>
-__global__ void computeDeform(T Rmax2, T iRmax, IROimages images,
+//template<typename T>
+extern "C" __global__ void computeDeform(T Rmax2, T iRmax, IROimages images,
         ZSHparams zshparams, T* steps_cp, T* clnm,
         Volumes volumes, DeformImages deformImages, bool applyTransformation,
-        bool saveDeformation, thrust::device_ptr<T> g_outArr) 
+        bool saveDeformation, T* g_outArr) 
 {
     __shared__ T sumArray[TOTAL_BLOCK_SIZE * 4];
 

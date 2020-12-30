@@ -1,7 +1,11 @@
 // Xmipp includes
+#include "api/dimension_vector.h"
 #include "core/metadata_label.h"
 #include "core/xmipp_random_mode.h"
+#include "enum/argument_access_type.h"
+#include "enum/argument_memory_location.h"
 #include "enum/compute_api.h"
+#include "ktt_types.h"
 #include "reconstruction_adapt_cuda/volume_deform_sph_gpu.h"
 #include "cuda_volume_deform_sph.h"
 #include "core/matrix1d.h"
@@ -17,7 +21,13 @@
 // KTT includes
 #include "tuner_api.h"
 // Cuda kernel include
-#include "cuda_volume_deform_sph.cu"
+//#include "cuda_volume_deform_sph.cu"
+
+// CUDA kernel defines
+#define BLOCK_X_DIM 8
+#define BLOCK_Y_DIM 4
+#define BLOCK_Z_DIM 4
+#define TOTAL_BLOCK_SIZE (BLOCK_X_DIM * BLOCK_Y_DIM * BLOCK_Z_DIM)
 
 
 // Not everything will be needed to transfer every time.
@@ -118,6 +128,10 @@ void transformData(Target** dest, Source* source, size_t n, bool mallocMem = tru
 */
 // VolumeDeformSph methods
 
+VolumeDeformSph::VolumeDeformSph() : tuner(0, 0, ktt::ComputeAPI::CUDA)
+{
+}
+
 VolumeDeformSph::~VolumeDeformSph() 
 {
     freeImage(images.VI);
@@ -168,6 +182,28 @@ void VolumeDeformSph::setupConstantParameters()
     setupImage(program->VR, images.VR);
     setupZSHparams();
     setupVolumes();
+
+    // ktt stuff
+    Rmax2Id = tuner.addArgumentScalar(Rmax2);
+    iRmaxId = tuner.addArgumentScalar(iRmax);
+    imagesId = tuner.addArgumentScalar(images);
+    zshparamsId = tuner.addArgumentScalar(zshparams);
+    volumesId = tuner.addArgumentScalar(volumes);
+    // this one is just a dummy argument, for real it is initilized
+    // in the setupChangingParameters, but it has to be initilized here
+    // (or elsewhere) for successful kernel call
+    deformImagesId = tuner.addArgumentScalar(deformImages);
+
+    // kernel dimension
+    kttBlock.setSizeX(BLOCK_X_DIM);
+    kttBlock.setSizeY(BLOCK_Y_DIM);
+    kttBlock.setSizeZ(BLOCK_Z_DIM);
+    kttGrid.setSizeX(images.VR.xDim / BLOCK_X_DIM);
+    kttGrid.setSizeY(images.VR.yDim / BLOCK_Y_DIM);
+    kttGrid.setSizeZ(images.VR.zDim / BLOCK_Z_DIM);
+
+    // kernel init
+    kernelId = tuner.addKernelFromFile(pathToXmipp + pathToKernel, "computeDeform", kttGrid, kttBlock);
 }
 
 void VolumeDeformSph::setupChangingParameters() 
@@ -178,32 +214,40 @@ void VolumeDeformSph::setupChangingParameters()
     unsigned stepsSize = program->steps_cp.size() * sizeof(ComputationDataType);
     unsigned clnmSize = program->clnm.size() * sizeof(ComputationDataType);
 
-    if (this->steps == nullptr)
+    if (this->steps == nullptr) {
         if (cudaMalloc(&(this->steps), stepsSize) != cudaSuccess)
             printCudaError();
-    if (this->clnm == nullptr)
+        else
+            // ktt stuff
+            stepsId = tuner.addArgumentVector<ComputationDataType>(static_cast<ktt::UserBuffer>(steps), zshparams.size * sizeof(ComputationDataType), ktt::ArgumentAccessType::ReadOnly, ktt::ArgumentMemoryLocation::Device);
+    }
+    if (this->clnm == nullptr) {
         if (cudaMalloc(&(this->clnm), clnmSize) != cudaSuccess)
             printCudaError();
+        else
+            // ktt stuff
+            clnmId = tuner.addArgumentVector<ComputationDataType>(static_cast<ktt::UserBuffer>(clnm), zshparams.size * sizeof(ComputationDataType), ktt::ArgumentAccessType::ReadOnly, ktt::ArgumentMemoryLocation::Device);
+    }
 
-/*
-    if (cudaMemcpy(this->steps, program->steps_cp.vdata, stepsSize, cudaMemcpyHostToDevice) != cudaSuccess)
-        printCudaError();
-    if (cudaMemcpy(this->clnm, program->clnm.vdata, clnmSize, cudaMemcpyHostToDevice) != cudaSuccess)
-        printCudaError();
-*/
     transformData(&(this->steps), program->steps_cp.vdata, program->steps_cp.size(), false);
     transformData(&(this->clnm), program->clnm.vdata, program->clnm.size(), false);
 
     this->applyTransformation = program->applyTransformation;
     this->saveDeformation = program->saveDeformation;
 
+    // ktt stuff
+    applyTransformationId = tuner.addArgumentScalar(static_cast<int>(applyTransformation));
+    saveDeformationId = tuner.addArgumentScalar(static_cast<int>(saveDeformation));
+
     if (applyTransformation) {
         setupImage(images.VR, images.VO);
+        imagesId = tuner.addArgumentScalar(images);
     }
     if (saveDeformation) {
         setupImage(images.VR, deformImages.Gx);
         setupImage(images.VR, deformImages.Gy);
         setupImage(images.VR, deformImages.Gz);
+        deformImagesId = tuner.addArgumentScalar(deformImages);
     }
 }
 
@@ -232,33 +276,59 @@ void VolumeDeformSph::transferImageData(Image<double>& outputImage, ImageData& i
 
 void VolumeDeformSph::runKernel() 
 {
-    // KTT test
-    ktt::Tuner tuner(0, 0, ktt::ComputeAPI::CUDA);
-
     // Does not work in general case, but test data have nice sizes
-    dim3 grid;
-    grid.x = images.VR.xDim / BLOCK_X_DIM;
-    grid.y = images.VR.yDim / BLOCK_Y_DIM;
-    grid.z = images.VR.zDim / BLOCK_Z_DIM;
 
-    dim3 block;
-    block.x = BLOCK_X_DIM;
-    block.y = BLOCK_Y_DIM;
-    block.z = BLOCK_Z_DIM;
+// KTT test
+    // Define path to kernel
+    //std::string pathToXmipp = "/home/david/thesis/xmipp-bundle/";
+    //std::string pathToKernel = "src/xmipp/libraries/reconstruction_cuda/cuda_volume_deform_sph.cu";
 
-    // thrust experiment
-    int TOTAL_GRID_SIZE = grid.x * grid.y * grid.z;
-    thrust::device_vector<ComputationDataType> t_out(TOTAL_GRID_SIZE * 4, 0.0);
+    // Define block and grid size
+    //const ktt::DimensionVector kttBlock(BLOCK_X_DIM, BLOCK_Y_DIM, BLOCK_Z_DIM);
+    //const ktt::DimensionVector kttGrid(images.VR.xDim / BLOCK_X_DIM, images.VR.yDim / BLOCK_Y_DIM, images.VR.zDim / BLOCK_Z_DIM);
 
-    computeDeform<<< grid, block >>>(Rmax2, iRmax,
-            images, zshparams, steps, clnm,
-            volumes, deformImages, applyTransformation, saveDeformation, t_out.data());
+    // Define thrust reduction vector
+    thrust::device_vector<ComputationDataType> t_out(kttGrid.getTotalSize() * 4, 0.0);
+
+    // Initialize tuner
+    //tuner.setCompilerOptions("--std=c++11");
+
+    // Add kernel to the tuner
+    //ktt::KernelId kernelId = tuner.addKernelFromFile(pathToXmipp + pathToKernel, "computeDeform", kttGrid, kttBlock);
+
+    // Add arguments for the kernel
+    //Rmax2Id = tuner.addArgumentScalar(Rmax2);
+    //iRmaxId = tuner.addArgumentScalar(iRmax);
+    //imagesId = tuner.addArgumentScalar(images);
+    //zshparamsId = tuner.addArgumentScalar(zshparams);
+    //volumesId = tuner.addArgumentScalar(volumes);
+    //deformImagesId = tuner.addArgumentScalar(deformImages);
+    //stepsId = tuner.addArgumentVector<ComputationDataType>(static_cast<ktt::UserBuffer>(steps), zshparams.size * sizeof(ComputationDataType), ktt::ArgumentAccessType::ReadOnly, ktt::ArgumentMemoryLocation::Device);
+    //clnmId = tuner.addArgumentVector<ComputationDataType>(static_cast<ktt::UserBuffer>(clnm), zshparams.size * sizeof(ComputationDataType), ktt::ArgumentAccessType::ReadOnly, ktt::ArgumentMemoryLocation::Device);
+    // Bool is not supported, will see what happens
+    //applyTransformationId = tuner.addArgumentScalar(static_cast<int>(applyTransformation));
+    //saveDeformationId = tuner.addArgumentScalar(static_cast<int>(saveDeformation));
+    // end of booleans
+    ktt::ArgumentId thrustVecId = tuner.addArgumentVector<ComputationDataType>(static_cast<ktt::UserBuffer>(thrust::raw_pointer_cast(t_out.data())), t_out.size() * sizeof(ComputationDataType), ktt::ArgumentAccessType::ReadWrite, ktt::ArgumentMemoryLocation::Device);
+
+    // Assign arguments to the kernel
+    tuner.setKernelArguments(kernelId, std::vector<ktt::ArgumentId>{
+            Rmax2Id, iRmaxId, imagesId, zshparamsId,
+            stepsId, clnmId,
+            volumesId, deformImagesId, applyTransformationId, saveDeformationId,
+            thrustVecId
+            });
+
+    // Run kernel
+    tuner.runKernel(kernelId, {}, {});
+// end KTT test
+
     cudaDeviceSynchronize();
 
     auto diff2It = t_out.begin();
-    auto sumVDIt = diff2It + TOTAL_GRID_SIZE;
-    auto modgIt = sumVDIt + TOTAL_GRID_SIZE;
-    auto NcountIt = modgIt + TOTAL_GRID_SIZE;
+    auto sumVDIt = diff2It + kttGrid.getTotalSize();
+    auto modgIt = sumVDIt + kttGrid.getTotalSize();
+    auto NcountIt = modgIt + kttGrid.getTotalSize();
 
     exOuts.diff2 = thrust::reduce(diff2It, sumVDIt);
     exOuts.sumVD = thrust::reduce(sumVDIt, modgIt);
