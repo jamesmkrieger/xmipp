@@ -5,6 +5,7 @@
 #include "enum/argument_access_type.h"
 #include "enum/argument_memory_location.h"
 #include "enum/compute_api.h"
+#include "enum/logging_level.h"
 #include "ktt_types.h"
 #include "reconstruction_adapt_cuda/volume_deform_sph_gpu.h"
 #include "cuda_volume_deform_sph.h"
@@ -130,6 +131,7 @@ void transformData(Target** dest, Source* source, size_t n, bool mallocMem = tru
 
 VolumeDeformSph::VolumeDeformSph() : tuner(0, 0, ktt::ComputeAPI::CUDA)
 {
+    tuner.setLoggingLevel(ktt::LoggingLevel::Off);
 }
 
 VolumeDeformSph::~VolumeDeformSph() 
@@ -211,7 +213,12 @@ void VolumeDeformSph::setupChangingParameters()
     if (program == nullptr)
         throw new std::runtime_error("VolumeDeformSph not associated with the program!");
 
-    unsigned stepsSize = program->steps_cp.size() * sizeof(ComputationDataType);
+    compressClnm(clnmVec);
+
+    clnmId = tuner.addArgumentVector(clnmVec, ktt::ArgumentAccessType::ReadOnly);
+    stepsId = tuner.addArgumentScalar(program->onesInSteps);
+/*
+    //unsigned stepsSize = program->steps_cp.size() * sizeof(ComputationDataType);
     unsigned clnmSize = program->clnm.size() * sizeof(ComputationDataType);
 
     if (this->steps == nullptr) {
@@ -221,6 +228,7 @@ void VolumeDeformSph::setupChangingParameters()
             // ktt stuff
             stepsId = tuner.addArgumentVector<ComputationDataType>(static_cast<ktt::UserBuffer>(steps), zshparams.size * sizeof(ComputationDataType), ktt::ArgumentAccessType::ReadOnly, ktt::ArgumentMemoryLocation::Device);
     }
+
     if (this->clnm == nullptr) {
         if (cudaMalloc(&(this->clnm), clnmSize) != cudaSuccess)
             printCudaError();
@@ -231,7 +239,9 @@ void VolumeDeformSph::setupChangingParameters()
 
     transformData(&(this->steps), program->steps_cp.vdata, program->steps_cp.size(), false);
     transformData(&(this->clnm), program->clnm.vdata, program->clnm.size(), false);
+*/
 
+    // Deformation and transformation booleans
     this->applyTransformation = program->applyTransformation;
     this->saveDeformation = program->saveDeformation;
 
@@ -249,6 +259,15 @@ void VolumeDeformSph::setupChangingParameters()
         setupImage(images.VR, deformImages.Gz);
         deformImagesId = tuner.addArgumentScalar(deformImages);
     }
+}
+
+void VolumeDeformSph::compressClnm(std::vector<ComputationDataType>& clnmVec)
+{
+    clnmVec.resize(program->onesInSteps * 3);
+    memcpy(clnmVec.data(), program->clnm.vdata, program->onesInSteps * sizeof(ComputationDataType));
+    memcpy(clnmVec.data() + program->onesInSteps, program->clnm.vdata + program->vecSize, program->onesInSteps * sizeof(ComputationDataType));
+    memcpy(clnmVec.data() + program->onesInSteps * 2, program->clnm.vdata + program->vecSize * 2, program->onesInSteps * sizeof(ComputationDataType));
+
 }
 
 KernelOutputs VolumeDeformSph::getOutputs() 

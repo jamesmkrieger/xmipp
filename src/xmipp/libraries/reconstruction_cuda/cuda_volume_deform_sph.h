@@ -110,6 +110,7 @@ private:
     ComputationDataType* steps = nullptr;
 
     ktt::ArgumentId clnmId;
+    std::vector<ComputationDataType> clnmVec;
     ComputationDataType* clnm = nullptr;
 
     ktt::ArgumentId applyTransformationId;
@@ -150,6 +151,8 @@ private:
     void setupVolumes();
 
     void setupZSHparams();
+
+    void compressClnm(std::vector<ComputationDataType>& clnmCompressed);
 };
 
 #endif// VOLUME_DEFORM_SPH_H

@@ -180,7 +180,7 @@ __device__ T interpolatedElement3D(ImageData ImD,
 
 //template<typename T>
 extern "C" __global__ void computeDeform(T Rmax2, T iRmax, IROimages images,
-        ZSHparams zshparams, T* steps_cp, T* clnm,
+        ZSHparams zshparams, int steps, T* clnm,
         Volumes volumes, DeformImages deformImages, bool applyTransformation,
         bool saveDeformation, T* g_outArr) 
 {
@@ -204,9 +204,9 @@ extern "C" __global__ void computeDeform(T Rmax2, T iRmax, IROimages images,
     T gx = 0.0, gy = 0.0, gz = 0.0;
 
     if (r2 < Rmax2) {
-        for (unsigned idx = 0; idx < zshparams.size; idx++) {
-            if (steps_cp[idx] == 1) {
-                // Constant memory? all threads in warp use the same values
+        //for (unsigned idx = 0; idx < zshparams.size; idx++) {
+        //    if (steps_cp[idx] == 1) {
+        for (int idx = 0; idx < steps; idx++) {
                 int l1 = zshparams.vL1[idx];
                 int n = zshparams.vN[idx];
                 int l2 = zshparams.vL2[idx];
@@ -216,10 +216,12 @@ extern "C" __global__ void computeDeform(T Rmax2, T iRmax, IROimages images,
 
                 if (rr > 0 || l2 == 0) {
                     gx += zsph * clnm[idx];
-                    gy += zsph * clnm[idx + zshparams.size];
-                    gz += zsph * clnm[idx + zshparams.size * 2];
+                    //gy += zsph * clnm[idx + zshparams.size];
+                    //gz += zsph * clnm[idx + zshparams.size * 2];
+                    gy += zsph * clnm[idx + steps];
+                    gz += zsph * clnm[idx + steps * 2];
                 }
-            }
+        //    }
         }
     }
 
