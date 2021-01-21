@@ -147,6 +147,37 @@ double atomRadius(const std::string &atom)
     }
 }
 
+/* Atom Covalent radius ------------------------------------------------------------- */
+double atomCovalentRadius(const std::string &atom)
+{
+    switch (atom[0])
+    {
+    case 'H':
+        return 0.38;
+        break;
+    case 'C':
+        return 0.77;
+        break;
+    case 'N':
+        return 0.75;
+        break;
+    case 'O':
+        return 0.73;
+        break;
+    case 'P':
+        return 1.06;
+        break;
+    case 'S':
+        return 1.02;
+        break;
+    case 'F': // Iron
+        return 1.25;
+        break;
+    default:
+        return 0;
+    }
+}
+
 /* Compute geometry -------------------------------------------------------- */
 void computePDBgeometry(const std::string &fnPDB,
                         Matrix1D<double> &centerOfMass,
