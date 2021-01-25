@@ -1,11 +1,12 @@
 #ifndef VOLUME_DEFORM_SPH_H
 #define VOLUME_DEFORM_SPH_H
-
-#include <vector>
+// Xmipp includes
 #include "api/dimension_vector.h"
 #include "core/xmipp_image.h"
 #include "core/multidim_array.h"
-
+// Standard includes
+#include <vector>
+// KTT includes
 #include "ktt_types.h"
 #include "tuner_api.h"
 
@@ -88,10 +89,11 @@ public:
 private:
     ProgVolumeDeformSphGpu* program = nullptr;
 
-    // ktt stuff
+    // KTT tuner and kernel
     ktt::Tuner tuner;
     ktt::KernelId kernelId;
 
+    // Kernel dimensions
     ktt::DimensionVector kttBlock;
     ktt::DimensionVector kttGrid;
 
@@ -100,6 +102,7 @@ private:
     const std::string pathToKernel = "src/xmipp/libraries/reconstruction_cuda/cuda_volume_deform_sph.cu";
 
     // Variables transfered to the GPU memory
+
     ktt::ArgumentId Rmax2Id;
     ComputationDataType Rmax2;
 
@@ -136,10 +139,11 @@ private:
     std::vector<ImageData> justForFreeI;
     std::vector<ImageData> justForFreeR;
 
-    KernelOutputs *outputs = nullptr;
-    KernelOutputs exOuts;
+    KernelOutputs outputs;
 
     // helper methods for simplifying and transfering data to gpu
+
+    void reduceResults();
 
     void setupImage(Image<double>& inputImage, ImageData& outputImageData);
     void setupImage(ImageData& inputImage, ImageData& outputImageData, bool copyData = false);

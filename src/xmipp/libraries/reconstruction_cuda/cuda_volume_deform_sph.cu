@@ -204,8 +204,6 @@ extern "C" __global__ void computeDeform(T Rmax2, T iRmax, IROimages images,
     T gx = 0.0, gy = 0.0, gz = 0.0;
 
     if (r2 < Rmax2) {
-        //for (unsigned idx = 0; idx < zshparams.size; idx++) {
-        //    if (steps_cp[idx] == 1) {
         for (int idx = 0; idx < steps; idx++) {
                 int l1 = zshparams.vL1[idx];
                 int n = zshparams.vN[idx];
@@ -216,12 +214,9 @@ extern "C" __global__ void computeDeform(T Rmax2, T iRmax, IROimages images,
 
                 if (rr > 0 || l2 == 0) {
                     gx += zsph * clnm[idx];
-                    //gy += zsph * clnm[idx + zshparams.size];
-                    //gz += zsph * clnm[idx + zshparams.size * 2];
-                    gy += zsph * clnm[idx + steps];
-                    gz += zsph * clnm[idx + steps * 2];
+                    gy += zsph * clnm[idx + zshparams.size];
+                    gz += zsph * clnm[idx + zshparams.size * 2];
                 }
-        //    }
         }
     }
 
