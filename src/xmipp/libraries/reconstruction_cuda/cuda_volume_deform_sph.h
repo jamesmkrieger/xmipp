@@ -18,6 +18,8 @@ using ComputationDataType = float;
 
 // Forward declarations
 class ProgVolumeDeformSphGpu;
+struct int4;
+struct float3;
 
 struct ImageData
 {
@@ -31,13 +33,19 @@ struct ImageData
 
     ComputationDataType* data = nullptr;
 };
-
+/*
 struct ZSHparams 
 {
     int* vL1 = nullptr;
     int* vN = nullptr;
     int* vL2 = nullptr;
     int* vM = nullptr;
+    unsigned size = 0;
+};
+*/
+struct ZSHparams 
+{
+    int4* data = nullptr;
     unsigned size = 0;
 };
 
@@ -113,8 +121,8 @@ private:
     ComputationDataType* steps = nullptr;
 
     ktt::ArgumentId clnmId;
-    std::vector<ComputationDataType> clnmVec;
-    ComputationDataType* clnm = nullptr;
+    std::vector<float3> clnmVec;
+    float3* clnm = nullptr;
 
     ktt::ArgumentId applyTransformationId;
     bool applyTransformation;
@@ -131,6 +139,7 @@ private:
     DeformImages deformImages;
 
     ktt::ArgumentId zshparamsId;
+    std::vector<int4> zshparamsVec;
     ZSHparams zshparams;
 
     ktt::ArgumentId volumesId;
@@ -156,7 +165,7 @@ private:
 
     void setupZSHparams();
 
-    void compressClnm(std::vector<ComputationDataType>& clnmCompressed);
+    void setupClnm();
 };
 
 #endif// VOLUME_DEFORM_SPH_H

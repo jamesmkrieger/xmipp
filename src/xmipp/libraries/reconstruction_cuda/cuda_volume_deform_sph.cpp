@@ -112,10 +112,11 @@ VolumeDeformSph::~VolumeDeformSph()
     freeImage(images.VR);
     freeImage(images.VO);
 
-    cudaFree(zshparams.vL1);
-    cudaFree(zshparams.vL2);
-    cudaFree(zshparams.vN);
-    cudaFree(zshparams.vM);
+    //cudaFree(zshparams.vL1);
+    //cudaFree(zshparams.vL2);
+    //cudaFree(zshparams.vN);
+    //cudaFree(zshparams.vM);
+    cudaFree(zshparams.data);
 
     for (size_t i = 0; i < volumes.size; i++) {
         freeImage(justForFreeR[i]);
@@ -160,7 +161,8 @@ void VolumeDeformSph::setupConstantParameters()
     Rmax2Id = tuner.addArgumentScalar(Rmax2);
     iRmaxId = tuner.addArgumentScalar(iRmax);
     imagesId = tuner.addArgumentScalar(images);
-    zshparamsId = tuner.addArgumentScalar(zshparams);
+    //zshparamsId = tuner.addArgumentScalar(zshparams);
+    zshparamsId = tuner.addArgumentVector(zshparamsVec, ktt::ArgumentAccessType::ReadOnly);
     volumesId = tuner.addArgumentScalar(volumes);
     // this one is just a dummy argument, for real it is initilized
     // in the setupChangingParameters, but it has to be initilized here
@@ -184,7 +186,8 @@ void VolumeDeformSph::setupChangingParameters()
     if (program == nullptr)
         throw new std::runtime_error("VolumeDeformSph not associated with the program!");
 
-    clnmVec.assign(program->clnm.vdata, program->clnm.vdata + program->clnm.size());
+    //clnmVec.assign(program->clnm.vdata, program->clnm.vdata + program->clnm.size());
+    setupClnm();
 
     clnmId = tuner.addArgumentVector(clnmVec, ktt::ArgumentAccessType::ReadOnly);
     stepsId = tuner.addArgumentScalar(program->onesInSteps);
@@ -209,9 +212,16 @@ void VolumeDeformSph::setupChangingParameters()
     }
 }
 
-void VolumeDeformSph::compressClnm(std::vector<ComputationDataType>& clnmVec)
+void VolumeDeformSph::setupClnm()
 {
-    clnmVec.assign(program->clnm.vdata, program->clnm.vdata + program->clnm.size());
+    //clnmVec.assign(program->clnm.vdata, program->clnm.vdata + program->clnm.size());
+    clnmVec.resize(program->vL1.size());
+
+    for (unsigned i = 0; i < program->vL1.size(); ++i) {
+        clnmVec[i].x = program->clnm[i];
+        clnmVec[i].y = program->clnm[i + program->vL1.size()];
+        clnmVec[i].z = program->clnm[i + program->vL1.size() * 2];
+    }
 }
 
 KernelOutputs VolumeDeformSph::getOutputs() 
@@ -273,7 +283,7 @@ void VolumeDeformSph::transferResults()
         transferImageData(program->Gz, deformImages.Gz);
     }
 }
-
+/*
 void VolumeDeformSph::setupZSHparams()
 {
     zshparams.size = program->vL1.size();
@@ -286,6 +296,19 @@ void VolumeDeformSph::setupZSHparams()
         printCudaError();
     if (cudaMallocAndCopy(&zshparams.vM, program->vM.vdata, zshparams.size) != cudaSuccess)
         printCudaError();
+}
+*/
+void VolumeDeformSph::setupZSHparams()
+{
+    zshparams.size = program->vL1.size();
+    zshparamsVec.resize(program->vL1.size());
+
+    for (unsigned i = 0; i < zshparamsVec.size(); ++i) {
+        zshparamsVec[i].w = program->vL1[i];
+        zshparamsVec[i].x = program->vN[i];
+        zshparamsVec[i].y = program->vL2[i];
+        zshparamsVec[i].z = program->vM[i];
+    }
 }
 
 void VolumeDeformSph::setupVolumes()

@@ -10,8 +10,6 @@
 
 //#include <thrust/device_vector.h>
 
-// Define data structures from the headers
-
 //#ifdef COMP_DOUBLE
 //using ComputationDataType = double;
 //#else
@@ -23,8 +21,8 @@
 #define FLOOR(x) (((x) == (int)(x)) ? (int)(x):(((x) > 0) ? (int)(x) : \
                   (int)((x) - 1)))
 #define LIN_INTERP(a, l, h) ((l) + ((h) - (l)) * (a))
-//#define FLOOR(num) ((int)(num))
-//#define LIN_INTERP(x,y,z) (0)
+
+// Define data structures from the headers
 
 struct ImageData
 {
@@ -38,13 +36,19 @@ struct ImageData
 
     ComputationDataType* data;
 };
-
+/*
 struct ZSHparams 
 {
     int* vL1;
     int* vN;
     int* vL2;
     int* vM;
+    unsigned size;
+};
+*/
+struct ZSHparams 
+{
+    int4* data;
     unsigned size;
 };
 
@@ -180,7 +184,7 @@ __device__ T interpolatedElement3D(ImageData ImD,
 
 //template<typename T>
 extern "C" __global__ void computeDeform(T Rmax2, T iRmax, IROimages images,
-        ZSHparams zshparams, int steps, T* clnm,
+        /*ZSHparams zshparams*/int4 *zshparams, int steps, float3* clnm,
         Volumes volumes, DeformImages deformImages, bool applyTransformation,
         bool saveDeformation, T* g_outArr) 
 {
@@ -205,18 +209,29 @@ extern "C" __global__ void computeDeform(T Rmax2, T iRmax, IROimages images,
 
     if (r2 < Rmax2) {
         for (int idx = 0; idx < steps; idx++) {
-                int l1 = zshparams.vL1[idx];
-                int n = zshparams.vN[idx];
-                int l2 = zshparams.vL2[idx];
-                int m = zshparams.vM[idx];
-                T zsph = ZernikeSphericalHarmonics(l1, n, l2, m,
-                        j * iRmax, i * iRmax, k * iRmax, rr);
+            /*
+            int l1 = zshparams.vL1[idx];
+            int n = zshparams.vN[idx];
+            int l2 = zshparams.vL2[idx];
+            int m = zshparams.vM[idx];
+            */
+            int l1 = zshparams[idx].w;
+            int n = zshparams[idx].x;
+            int l2 = zshparams[idx].y;
+            int m = zshparams[idx].z;
+            T zsph = ZernikeSphericalHarmonics(l1, n, l2, m,
+                    j * iRmax, i * iRmax, k * iRmax, rr);
 
-                if (rr > 0 || l2 == 0) {
-                    gx += zsph * clnm[idx];
-                    gy += zsph * clnm[idx + zshparams.size];
-                    gz += zsph * clnm[idx + zshparams.size * 2];
-                }
+            if (rr > 0 || l2 == 0) {
+                gx += zsph * clnm[idx].x;
+                gy += zsph * clnm[idx].y;
+                gz += zsph * clnm[idx].z;
+                /*
+                gx += zsph * clnm[idx];
+                gy += zsph * clnm[idx + zshparams.size];
+                gz += zsph * clnm[idx + zshparams.size * 2];
+                */
+            }
         }
     }
 
