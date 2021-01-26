@@ -58,6 +58,9 @@ public:
 
 	bool medianTrue;
 
+	std::vector<double> residuesToChimera;
+	double fscResolution;
+
 	struct pdbdata
 	{
 		std::vector<double> x;
@@ -79,10 +82,14 @@ public:
     template<typename T>
     std::vector<size_t> sort_indexes(const std::vector<T> &v);
 
-    void sweepByResidue(MultidimArray<int> &mask);
+    void sweepByResidue(MultidimArray<int> &mask, std::vector<double> &residuesToChimera);
 
     template<typename T>
     void maskFromPDBData(struct pdbdata &coord, MultidimArray<T> &mask);
+
+    void generateOutputPDB(std::vector<double> &residuesToChimera);
+
+    void smoothingResidueOutput();
 
     void run();
 };

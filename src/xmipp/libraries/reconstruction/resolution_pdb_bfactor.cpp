@@ -30,6 +30,8 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <iomanip>
+#include <string.h>
 
 
 void ProgResBFactor::readParams()
@@ -38,6 +40,7 @@ void ProgResBFactor::readParams()
 	fn_locres = getParam("--vol");
 	sampling = getDoubleParam("--sampling");
 	medianTrue = checkParam("--median");
+	fscResolution = getDoubleParam("--fscResolution");
 	fnOut = getParam("-o");
 }
 
@@ -50,6 +53,8 @@ void ProgResBFactor::defineParams()
 	addParamsLine("  --vol <vol_file=\"\">				: Local resolution map");
 	addParamsLine("  [--sampling <sampling=1>]			: Sampling Rate (A)");
 	addParamsLine("  [--median]			                : The resolution an bfactor per residue are averaged instead of computed the median");
+	addParamsLine("  [--fscResolution]			        : If this is provided, the FSC resolution in Angstrom is used to normalized");
+	addParamsLine("                                       the resolution as (LR-R)/R, where LR is the local resoluion and R is the global resolution");
 	addParamsLine("  -o <output=\"amap.mrc\">			: Output of the algorithm");
 }
 
@@ -77,52 +82,51 @@ void ProgResBFactor::analyzePDB()
 
 		// The type of record (line) is defined in the first 6 characters of the pdb
 		std::string typeOfline = line.substr(0,4);
-		//std::cout << typeOfline << std::endl;
 
 		if ( (typeOfline == "ATOM") || (typeOfline == "HETA"))
 		{
 			// Type of Atom
-			std::string at = line.substr(13,1);
-			std::cout << at << std::endl;
+			std::string at = line.substr(13,2);
 
-//			if (at != "C")
-//				continue;
+			if (at == "CA")
+			{
 
-			numberOfAtoms++;
-			double x = textToFloat(line.substr(30,8));
-			double y = textToFloat(line.substr(38,8));
-			double z = textToFloat(line.substr(46,8));
+				numberOfAtoms++;
+				double x = textToFloat(line.substr(30,8));
+				double y = textToFloat(line.substr(38,8));
+				double z = textToFloat(line.substr(46,8));
 
-			// The furthest points along each axis are found to set the boxsize with the sampling
-			if (x<minx)
-				minx = x;
-			if (y<miny)
-			    miny = y;
-			if (z<minz)
-				minz = z;
-			if (x>maxx)
-				maxx = x;
-			if (y>maxy)
-				maxy = y;
-			if (z>maxz)
-				maxz = z;
+				// The furthest points along each axis are found to set the boxsize with the sampling
+				if (x<minx)
+					minx = x;
+				if (y<miny)
+					miny = y;
+				if (z<minz)
+					minz = z;
+				if (x>maxx)
+					maxx = x;
+				if (y>maxy)
+					maxy = y;
+				if (z>maxz)
+					maxz = z;
 
-			// Getting coordinates
-			at_pos.x.push_back(x);
-			at_pos.y.push_back(y);
-			at_pos.z.push_back(z);
+				// Getting coordinates
+				at_pos.x.push_back(x);
+				at_pos.y.push_back(y);
+				at_pos.z.push_back(z);
 
-			int resi = (int) textToFloat(line.substr(23,5));
+				int resi = (int) textToFloat(line.substr(23,5));
 
-			at_pos.residue.push_back(resi);
+				at_pos.residue.push_back(resi);
 
-			// Getting the bfactor =8pi^2*u
-			double bfactorRad = sqrt(textToFloat(line.substr(60,6))/(8*PI*PI));
-			at_pos.b.push_back(bfactorRad);
+				// Getting the bfactor =8pi^2*u
+				double bfactorRad = sqrt(textToFloat(line.substr(60,6))/(8*PI*PI));
+				at_pos.b.push_back(bfactorRad);
 
-			double rad = atomCovalentRadius(line.substr(13,2));
+				double rad = atomCovalentRadius(line.substr(13,2));
 
-			at_pos.atomCovRad.push_back(rad);
+				at_pos.atomCovRad.push_back(rad);
+			}
 		}
 	}
 }
@@ -146,7 +150,7 @@ std::vector<size_t> ProgResBFactor::sort_indexes(const std::vector<T> &v)
 }
 
 
-void ProgResBFactor::sweepByResidue(MultidimArray<int> &mask)
+void ProgResBFactor::sweepByResidue(MultidimArray<int> &mask, std::vector<double> &residuesToChimera)
 {
 	// Reading Local Resolution Map
 	Image<double> imgResVol;
@@ -176,10 +180,14 @@ void ProgResBFactor::sweepByResidue(MultidimArray<int> &mask)
 	std::vector<double> resolution_to_estimate(0);
 
 	// the b-factor per residue
-	std::vector<double> bfactor_per_residue(0);// resNumberList(0)
+	std::vector<double> bfactor_per_residue(0), resNumberList(0);
 
 	// vector to estimate the bfactor of each residue
 	std::vector<double> bfactor_to_estimate(0);
+
+	// vectors to estimate the moving average
+	std::vector<double> ma_l(0);
+	std::vector<double> ma_c(0);
 
 	// Setting the first residue before the loop that sweeps all residues
 	size_t r = 0;
@@ -199,6 +207,10 @@ void ProgResBFactor::sweepByResidue(MultidimArray<int> &mask)
 	int resi, last_resi;
 
 	size_t first_index = 0;
+	size_t last_index = idx_residue.size()-1;
+
+	//std::cout << "last_index = " << at_pos.residue[idx_residue[last_index]] << std::endl;
+
 	last_resi = at_pos.residue[idx_residue[first_index]];
 
 	for (size_t r=first_index; r<numberOfAtoms; ++r)
@@ -212,8 +224,6 @@ void ProgResBFactor::sweepByResidue(MultidimArray<int> &mask)
 
 		if (resi != last_resi)
 		{
-
-
 
 			//std::cout << "New residue "<< resi << std::endl;
 
@@ -229,23 +239,32 @@ void ProgResBFactor::sweepByResidue(MultidimArray<int> &mask)
 
 				res_resi = resolution_to_estimate[size_t(resolution_to_estimate.size()*0.5)];
 				bfactor_resi = bfactor_to_estimate[size_t(bfactor_to_estimate.size()*0.5)];
+
 			}else
 			{
 				res_resi = resolution_mean/N_elems;
 				bfactor_resi = bfactor_mean/bfactor_to_estimate.size();
 			}
 
+			if (fscResolution)
+			{
+				res_resi -= fscResolution;
+				res_resi = fscResolution;
+			}
 
 
 			resolution_per_residue.push_back(res_resi);
 			bfactor_per_residue.push_back(bfactor_resi);
-			//resNumberList.push_back(res_resi);
 
-			objId = md.addObject();
-			md.setValue(MDL_BFACTOR, bfactor_resi, objId);
-			md.setValue(MDL_RESIDUE, last_resi, objId);
-			md.setValue(MDL_RESOLUTION_LOCAL_RESIDUE, res_resi, objId);
-			std::cout << last_resi << "  " << res_resi << ";" << std::endl;
+			ma_l.push_back(res_resi*0.3);
+			ma_c.push_back(res_resi*0.4);
+			resNumberList.push_back(last_resi);
+
+//			objId = md.addObject();
+//			md.setValue(MDL_BFACTOR, bfactor_resi, objId);
+//			md.setValue(MDL_RESIDUE, last_resi, objId);
+//			md.setValue(MDL_RESOLUTION_LOCAL_RESIDUE, res_resi, objId);
+			//std::cout << last_resi << "  " << res_resi << ";" << std::endl;
 
 			last_resi = resi;
 
@@ -348,11 +367,50 @@ void ProgResBFactor::sweepByResidue(MultidimArray<int> &mask)
 
 
 	}
+	std::cout << "................................" << std::endl;
+
+	std::vector<double> smoothedResolution(ma_c.size());
+	smoothedResolution[0]=(ma_c[0]+ma_l[1])/(0.3+0.4); //0.3 left weight,, 0.4 central weight
+
+	for (size_t i=1; i<(ma_c.size()-1); ++i)
+	{
+		smoothedResolution[i] = ma_l[i-1] + ma_c[i] + ma_l[i+1];
+	}
+	smoothedResolution[ma_c.size()-1] = (ma_c[ma_c.size()-1]+ma_l[ma_c.size()-2])/(0.3+0.4);
+
+	std::vector<double> residuesToChimera_aux(at_pos.residue[idx_residue[last_index]]);
+
+	MetaData mdSmooth;
+	size_t objsmth;
+	for (size_t nn = 0; nn<resolution_per_residue.size(); ++nn)
+	{
+		double bf, lr;
+		int resnumber;
+//		md.getValue(MDL_BFACTOR, bf, __iter.objId);
+//		md.getValue(MDL_RESIDUE, resnumber, __iter.objId);
+//		md.getValue(MDL_RESOLUTION_LOCAL_RESIDUE, lr, __iter.objId);
+		lr = resolution_per_residue[nn];
+		bf = bfactor_per_residue[nn];
+		resnumber = resNumberList[nn];
+
+		int idx_resnumber = (int) resnumber;
+
+		lr = smoothedResolution[nn];
+		residuesToChimera_aux[idx_resnumber-1] = lr;
+
+		objsmth = md.addObject();
+		md.setValue(MDL_BFACTOR, bf, objsmth);
+		md.setValue(MDL_RESIDUE, resnumber, objsmth);
+		md.setValue(MDL_RESOLUTION_LOCAL_RESIDUE, lr, objsmth);
+	}
+
 	FileName fn;
 
 	fn = fnOut + "/bfactor_resolution.xmd";
 	md.write(fn);
 
+//	mdSmooth.write("smooth.xmd");
+    residuesToChimera = residuesToChimera_aux;
 	Image<int> imMask;
 	imMask() = mask;
 	imMask.write("mascara.mrc");
@@ -377,25 +435,103 @@ void ProgResBFactor::maskFromPDBData(struct pdbdata &coord, MultidimArray<T> &ma
 	std::cout << xdim << " " << ydim << " " << ndim << std::endl;
 }
 
-//void ProgResBFactor::generateOutputPDB()
+
+void ProgResBFactor::generateOutputPDB(std::vector<double> &residuesToChimera)
+{
+	//Open the pdb file
+	std::ifstream f2parse;
+	f2parse.open(fn_pdb.c_str());
+
+	std::ofstream pdbToChimera;
+	pdbToChimera.open(fnOut+"/chimeraPDB.pdb");
+
+	int last_resi = 0;
+
+	while (!f2parse.eof())
+	{
+		std::string line;
+		getline(f2parse, line);
+
+//		// The type of record (line) is defined in the first 6 characters of the pdb
+		std::string typeOfline = line.substr(0,4);
+
+		if ( (typeOfline == "ATOM") || (typeOfline == "HETA"))
+		{
+
+			std::string lineInit = line.substr(0,61);
+			std::string lineEnd = line.substr(66, line.length()-1);
+
+			int resi = (int) textToFloat(line.substr(23,5));
+			std::string lineMiddle;
+			int digitNumber = 5;
+
+			std::stringstream ss;
+			std::string auxstr;
+			auxstr = std::to_string(residuesToChimera[resi-1]);
+
+			auxstr = auxstr.substr(0, 5);
+			ss << std::setfill('0') << std::setw(5)  << auxstr;
+			lineMiddle = ss.str();
+
+			std::string linePDB;
+			linePDB = lineInit + lineMiddle + lineEnd;
+			pdbToChimera << linePDB << std::endl;
+		}
+		else
+		{
+			pdbToChimera << line << std::endl;
+
+		}
+	}
+	pdbToChimera.close();
+}
+
+//void ProgResBFactor::smoothingResidueOutput()
 //{
+//	std::cout << "starting smoothing" << std::endl;
 //
+//	MetaData md;
+//
+//	double mml, mmc, mmp;
+//	int count = 0;
+//
+//	FOR_ALL_OBJECTS_IN_METADATA(md)
+//	{
+//		double bf, lr;
+//		int resnumber;
+//		md.getValue(MDL_BFACTOR, bf, __iter.objId);
+//		md.getValue(MDL_RESIDUE, resnumber, __iter.objId);
+//		md.getValue(MDL_RESOLUTION_LOCAL_RESIDUE, lr, __iter.objId);
+//
+//		mml = 0.3*lr;
+//		mmc = 0.4*lr;
+//
+//		count++;
+//
+//	}
+//
+//	for (size_t i = 0; i<XXX; ++i)
+//	{
+//
+//	}
 //
 //}
+
 
 void ProgResBFactor::run()
 {
 	MultidimArray<int> mask;
 
+	std::cout << "Start" << std::endl;
 	analyzePDB();
 
-	std::cout << "The pdb was parsed" << std::endl;
-
 	maskFromPDBData(at_pos, mask);
-	std::cout << "The pdb was parsed" << std::endl;
 
-	sweepByResidue(mask);
+	std::vector<double> residuesToChimera;
+	sweepByResidue(mask, residuesToChimera);
 	
+	generateOutputPDB(residuesToChimera);
+
 //	Image<int> imgsave;
 //	imgsave() = mask;
 //	imgsave.write("mascara.mrc");
