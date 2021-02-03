@@ -104,6 +104,11 @@ void transformData(Target** dest, Source* source, size_t n, bool mallocMem = tru
 VolumeDeformSph::VolumeDeformSph() : tuner(0, 0, ktt::ComputeAPI::CUDA)
 {
     tuner.setLoggingLevel(ktt::LoggingLevel::Off);
+#ifdef USE_DOUBLE_PRECISION
+    tuner.setCompilerOptions("-std=c++14 -DUSE_DOUBLE_PRECISION");
+#else
+    tuner.setCompilerOptions("-std=c++14");
+#endif
 }
 
 VolumeDeformSph::~VolumeDeformSph() 
@@ -111,12 +116,12 @@ VolumeDeformSph::~VolumeDeformSph()
     freeImage(images.VI);
     freeImage(images.VR);
     freeImage(images.VO);
-
-    //cudaFree(zshparams.vL1);
-    //cudaFree(zshparams.vL2);
-    //cudaFree(zshparams.vN);
-    //cudaFree(zshparams.vM);
-    cudaFree(zshparams.data);
+#ifdef USE_SCATTERED_ZSH_CLNM
+    cudaFree(zshparams.vL1);
+    cudaFree(zshparams.vL2);
+    cudaFree(zshparams.vN);
+    cudaFree(zshparams.vM);
+#endif
 
     for (size_t i = 0; i < volumes.size; i++) {
         freeImage(justForFreeR[i]);
@@ -124,9 +129,6 @@ VolumeDeformSph::~VolumeDeformSph()
     }
     cudaFree(volumes.R);
     cudaFree(volumes.I);
-
-    cudaFree(steps);
-    cudaFree(clnm);
 
     freeImage(deformImages.Gx);
     freeImage(deformImages.Gy);
@@ -161,8 +163,11 @@ void VolumeDeformSph::setupConstantParameters()
     Rmax2Id = tuner.addArgumentScalar(Rmax2);
     iRmaxId = tuner.addArgumentScalar(iRmax);
     imagesId = tuner.addArgumentScalar(images);
-    //zshparamsId = tuner.addArgumentScalar(zshparams);
+#ifdef USE_SCATTERED_ZSH_CLNM
+    zshparamsId = tuner.addArgumentScalar(zshparams);
+#else
     zshparamsId = tuner.addArgumentVector(zshparamsVec, ktt::ArgumentAccessType::ReadOnly);
+#endif
     volumesId = tuner.addArgumentScalar(volumes);
     // this one is just a dummy argument, for real it is initilized
     // in the setupChangingParameters, but it has to be initilized here
@@ -186,7 +191,6 @@ void VolumeDeformSph::setupChangingParameters()
     if (program == nullptr)
         throw new std::runtime_error("VolumeDeformSph not associated with the program!");
 
-    //clnmVec.assign(program->clnm.vdata, program->clnm.vdata + program->clnm.size());
     setupClnm();
 
     clnmId = tuner.addArgumentVector(clnmVec, ktt::ArgumentAccessType::ReadOnly);
@@ -214,7 +218,9 @@ void VolumeDeformSph::setupChangingParameters()
 
 void VolumeDeformSph::setupClnm()
 {
-    //clnmVec.assign(program->clnm.vdata, program->clnm.vdata + program->clnm.size());
+#ifdef USE_SCATTERED_ZSH_CLNM
+    clnmVec.assign(program->clnm.vdata, program->clnm.vdata + program->clnm.size());
+#else
     clnmVec.resize(program->vL1.size());
 
     for (unsigned i = 0; i < program->vL1.size(); ++i) {
@@ -222,6 +228,7 @@ void VolumeDeformSph::setupClnm()
         clnmVec[i].y = program->clnm[i + program->vL1.size()];
         clnmVec[i].z = program->clnm[i + program->vL1.size() * 2];
     }
+#endif
 }
 
 KernelOutputs VolumeDeformSph::getOutputs() 
@@ -232,8 +239,8 @@ KernelOutputs VolumeDeformSph::getOutputs()
 void VolumeDeformSph::transferImageData(Image<double>& outputImage, ImageData& inputData) 
 {
     size_t elements = inputData.xDim * inputData.yDim * inputData.zDim;
-    std::vector<ComputationDataType> tVec(elements);
-    cudaMemcpy(tVec.data(), inputData.data, sizeof(ComputationDataType) * elements, cudaMemcpyDeviceToHost);
+    std::vector<PrecisionType> tVec(elements);
+    cudaMemcpy(tVec.data(), inputData.data, sizeof(PrecisionType) * elements, cudaMemcpyDeviceToHost);
     std::vector<double> dVec(tVec.begin(), tVec.end());
     memcpy(outputImage().data, dVec.data(), sizeof(double) * elements);
 }
@@ -243,16 +250,23 @@ void VolumeDeformSph::runKernel()
     // Does not work in general case, but test data have nice sizes
 
     // Define thrust reduction vector
-    thrust::device_vector<ComputationDataType> thrustVec(kttGrid.getTotalSize() * 4, 0.0);
+    thrust::device_vector<PrecisionType> thrustVec(kttGrid.getTotalSize() * 4, 0.0);
 
     // Add arguments for the kernel
-    ktt::ArgumentId thrustVecId = tuner.addArgumentVector<ComputationDataType>(static_cast<ktt::UserBuffer>(thrust::raw_pointer_cast(thrustVec.data())), thrustVec.size() * sizeof(ComputationDataType), ktt::ArgumentAccessType::ReadWrite, ktt::ArgumentMemoryLocation::Device);
+    ktt::ArgumentId thrustVecId = tuner.addArgumentVector<PrecisionType>(static_cast<ktt::UserBuffer>(thrust::raw_pointer_cast(thrustVec.data())), thrustVec.size() * sizeof(PrecisionType), ktt::ArgumentAccessType::ReadWrite, ktt::ArgumentMemoryLocation::Device);
 
     // Assign arguments to the kernel
     tuner.setKernelArguments(kernelId, std::vector<ktt::ArgumentId>{
-            Rmax2Id, iRmaxId, imagesId, zshparamsId,
-            stepsId, clnmId,
-            volumesId, deformImagesId, applyTransformationId, saveDeformationId,
+            Rmax2Id,
+            iRmaxId,
+            imagesId,
+            zshparamsId,
+            clnmId,
+            stepsId,
+            volumesId,
+            deformImagesId,
+            applyTransformationId,
+            saveDeformationId,
             thrustVecId
             });
 
@@ -283,9 +297,10 @@ void VolumeDeformSph::transferResults()
         transferImageData(program->Gz, deformImages.Gz);
     }
 }
-/*
+
 void VolumeDeformSph::setupZSHparams()
 {
+#ifdef USE_SCATTERED_ZSH_CLNM
     zshparams.size = program->vL1.size();
 
     if (cudaMallocAndCopy(&zshparams.vL1, program->vL1.vdata, zshparams.size) != cudaSuccess)
@@ -296,11 +311,9 @@ void VolumeDeformSph::setupZSHparams()
         printCudaError();
     if (cudaMallocAndCopy(&zshparams.vM, program->vM.vdata, zshparams.size) != cudaSuccess)
         printCudaError();
-}
-*/
-void VolumeDeformSph::setupZSHparams()
-{
-    zshparams.size = program->vL1.size();
+#else
+
+    //zshparams.size = program->vL1.size();
     zshparamsVec.resize(program->vL1.size());
 
     for (unsigned i = 0; i < zshparamsVec.size(); ++i) {
@@ -309,6 +322,7 @@ void VolumeDeformSph::setupZSHparams()
         zshparamsVec[i].y = program->vL2[i];
         zshparamsVec[i].z = program->vM[i];
     }
+#endif
 }
 
 void VolumeDeformSph::setupVolumes()
@@ -352,7 +366,7 @@ void VolumeDeformSph::setupImage(ImageData& inputImage, ImageData& outputImageDa
     outputImageData.yDim = inputImage.yDim;
     outputImageData.zDim = inputImage.zDim;
 
-    size_t size = inputImage.xDim * inputImage.yDim * inputImage.zDim * sizeof(ComputationDataType);
+    size_t size = inputImage.xDim * inputImage.yDim * inputImage.zDim * sizeof(PrecisionType);
     if (cudaMalloc(&outputImageData.data, size) != cudaSuccess)
         printCudaError();
 

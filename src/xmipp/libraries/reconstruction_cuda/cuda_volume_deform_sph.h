@@ -10,16 +10,19 @@
 #include "ktt_types.h"
 #include "tuner_api.h"
 
-#ifdef COMP_DOUBLE
-using ComputationDataType = double;
-#else
-using ComputationDataType = float;
-#endif
-
 // Forward declarations
 class ProgVolumeDeformSphGpu;
 struct int4;
 struct float3;
+struct double3;
+
+#ifdef USE_DOUBLE_PRECISION
+using PrecisionType = double;
+using PrecisionType3 = double3;
+#else
+using PrecisionType = float;
+using PrecisionType3 = float3;
+#endif
 
 struct ImageData
 {
@@ -31,9 +34,10 @@ struct ImageData
     int yDim = 0;
     int zDim = 0;
 
-    ComputationDataType* data = nullptr;
+    PrecisionType* data = nullptr;
 };
-/*
+
+#ifdef USE_SCATTERED_ZSH_CLNM
 struct ZSHparams 
 {
     int* vL1 = nullptr;
@@ -42,12 +46,7 @@ struct ZSHparams
     int* vM = nullptr;
     unsigned size = 0;
 };
-*/
-struct ZSHparams 
-{
-    int4* data = nullptr;
-    unsigned size = 0;
-};
+#endif
 
 struct Volumes 
 {
@@ -72,10 +71,10 @@ struct DeformImages
 
 struct KernelOutputs 
 {
-    ComputationDataType diff2 = 0.0;
-    ComputationDataType sumVD = 0.0;
-    ComputationDataType modg = 0.0;
-    ComputationDataType Ncount = 0.0;
+    PrecisionType diff2 = 0.0;
+    PrecisionType sumVD = 0.0;
+    PrecisionType modg = 0.0;
+    PrecisionType Ncount = 0.0;
 };
 
 class VolumeDeformSph
@@ -106,23 +105,25 @@ private:
     ktt::DimensionVector kttGrid;
 
     // Kernel path
-    const std::string pathToXmipp = "/home/david/thesis/xmipp-bundle/";
+    const std::string pathToXmipp = "/home/david/thesis/xmipp-bundle/";//TODO
     const std::string pathToKernel = "src/xmipp/libraries/reconstruction_cuda/cuda_volume_deform_sph.cu";
 
     // Variables transfered to the GPU memory
 
     ktt::ArgumentId Rmax2Id;
-    ComputationDataType Rmax2;
+    PrecisionType Rmax2;
 
     ktt::ArgumentId iRmaxId;
-    ComputationDataType iRmax;
+    PrecisionType iRmax;
 
     ktt::ArgumentId stepsId;
-    ComputationDataType* steps = nullptr;
 
     ktt::ArgumentId clnmId;
-    std::vector<float3> clnmVec;
-    float3* clnm = nullptr;
+#ifdef USE_SCATTERED_ZSH_CLNM
+    std::vector<PrecisionType> clnmVec;
+#else
+    std::vector<PrecisionType3> clnmVec;
+#endif
 
     ktt::ArgumentId applyTransformationId;
     bool applyTransformation;
@@ -139,8 +140,11 @@ private:
     DeformImages deformImages;
 
     ktt::ArgumentId zshparamsId;
-    std::vector<int4> zshparamsVec;
+#ifdef USE_SCATTERED_ZSH_CLNM
     ZSHparams zshparams;
+#else
+    std::vector<int4> zshparamsVec;
+#endif
 
     ktt::ArgumentId volumesId;
     Volumes volumes;
