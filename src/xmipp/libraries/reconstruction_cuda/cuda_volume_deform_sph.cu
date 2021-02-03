@@ -382,7 +382,7 @@ __device__ PrecisionType ZernikeSphericalHarmonics(int l1, int n, int l2, int m,
 		switch (n)
 		{
 		case 0:
-			R = SQRT(CST(11))*((63*r2*r2/8)-(35*r2/4)+(15/8));
+			R = SQRT(CST(11))*((63*r2*r2/8)-(35*r2/4)+(CST(15)/CST(8)));
 			break;
 		case 2:
 			R = CST(-0.5)*SQRT(CST(11))*r2*(CST(4.5)*(1-2*r2)+CST(2.5));
@@ -395,7 +395,7 @@ __device__ PrecisionType ZernikeSphericalHarmonics(int l1, int n, int l2, int m,
 		switch (n)
 		{
 		case 1:
-			R = SQRT(CST(13))*r*((99*r2*r2/8)-(63*r2/4)+(35/8));
+			R = SQRT(CST(13))*r*((99*r2*r2/8)-(63*r2/4)+(CST(35)/CST(8)));
 			break;
 		case 3:
 			R = CST(-0.5)*SQRT(CST(13))*r2*r*(CST(5.5)*(1-2*r2)+CST(3.5));
