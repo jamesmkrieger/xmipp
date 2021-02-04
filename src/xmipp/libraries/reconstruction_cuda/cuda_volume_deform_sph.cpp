@@ -184,6 +184,10 @@ void VolumeDeformSph::setupConstantParameters()
 
     // kernel init
     kernelId = tuner.addKernelFromFile(pathToXmipp + pathToKernel, "computeDeform", kttGrid, kttBlock);
+
+    // kernel parameters
+    tuner.addParameter(kernelId, "L1", std::vector<size_t>{static_cast<unsigned>(program->L1)});
+    tuner.addParameter(kernelId, "L2", std::vector<size_t>{static_cast<unsigned>(program->L2)});
 }
 
 void VolumeDeformSph::setupChangingParameters() 
@@ -271,7 +275,8 @@ void VolumeDeformSph::runKernel()
             });
 
     // Run kernel
-    tuner.runKernel(kernelId, {}, {});
+    //tuner.runKernel(kernelId, {}, {});
+    tuner.tuneKernel(kernelId);
 
     cudaDeviceSynchronize();
 
