@@ -295,7 +295,7 @@ void ProgResBFactor::sweepByResidue(MultidimArray<int> &mask, std::vector<double
 		bfactor_mean += bfactorRad;
 
 		// Total Displacement in voxels
-		int totRad = round( (covRad + bfactorRad)/sampling );
+		int totRad = 3;//round( (covRad + bfactorRad)/sampling );
 
 		int dim = totRad*totRad;
 
